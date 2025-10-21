@@ -1,102 +1,209 @@
-import Image from "next/image";
-
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const projects = [
+    {
+      title: "Atlas Analytics Platform",
+      description:
+        "A data storytelling dashboard concept that highlights product KPIs with expressive visualizations and personalized insights for stakeholders.",
+      skills: ["TypeScript", "Next.js", "Tailwind CSS", "tRPC"],
+      demo: "https://example.com",
+      source: "https://github.com/ibragot",
+      gradient: "linear-gradient(135deg, #7795f8 0%, #67d7e2 100%)",
+    },
+    {
+      title: "Pinnacle Project Tracker",
+      description:
+        "Placeholder tool for keeping class and side projects organized with lightweight sprints, status reporting, and teammate updates.",
+      skills: ["React", "Prisma", "PostgreSQL", "GraphQL"],
+      demo: "https://example.com",
+      source: "https://github.com/ibragot",
+      gradient: "linear-gradient(135deg, #f67280 0%, #845ef7 100%)",
+    },
+    {
+      title: "Nova Study Planner",
+      description:
+        "Responsive planner concept that syncs lectures, deliverables, and personal goals into one calm interface for busy semesters.",
+      skills: ["TypeScript", "Expo", "Supabase", "Figma"],
+      demo: "https://example.com",
+      source: "https://github.com/ibragot",
+      gradient: "linear-gradient(135deg, #34d399 0%, #38bdf8 100%)",
+    },
+    {
+      title: "Orbit AI Assistant",
+      description:
+        "Exploration of an AI copiloted workspace that summarizes research, drafts documentation, and surfaces key decisions at a glance.",
+      skills: ["Next.js", "OpenAI", "Redis", "Zustand"],
+      demo: "https://example.com",
+      source: "https://github.com/ibragot",
+      gradient: "linear-gradient(135deg, #a855f7 0%, #f97316 100%)",
+    },
+    {
+      title: "Pulse Health Dashboard",
+      description:
+        "Healthcare-themed dashboard mockup that aggregates wearable data, predicts trends, and suggests next steps for providers.",
+      skills: ["Python", "FastAPI", "TimescaleDB", "Plotly"],
+      demo: "https://example.com",
+      source: "https://github.com/ibragot",
+      gradient: "linear-gradient(135deg, #ff9f1c 0%, #ff7eb3 100%)",
+    },
+    {
+      title: "Waypoint Travel Journal",
+      description:
+        "A minimalist travel log concept that geotags memories, curates photo sets, and shares itineraries with friends in real-time.",
+      skills: ["Next.js", "PlanetScale", "Mapbox", "Cloudinary"],
+      demo: "https://example.com",
+      source: "https://github.com/ibragot",
+      gradient: "linear-gradient(135deg, #60a5fa 0%, #facc15 100%)",
+    },
+  ];
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
+  const terminalStatements = [
+    { label: "Noureldin.name", value: '"Noureldin Ibrahim"' },
+    { label: "Noureldin.role", value: '"Computer Science @ UOttawa"' },
+    {
+      label: "Noureldin.contact",
+      links: [
+        {
+          label: "LinkedIn",
+          href: "https://www.linkedin.com/in/noureldin-ibrahim-264576214/",
+        },
+        {
+          label: "GitHub",
+          href: "https://github.com/ibragot",
+        },
+      ],
+    },
+    {
+      label: "Noureldin.skills",
+      value: '["TypeScript", "React", "Next.js", "Python"]',
+    },
+    {
+      label: "Noureldin.focus",
+      value: '"UX-friendly systems, AI-assisted tooling, community impact"',
+    },
+  ];
+
+  return (
+    <div className="page-wrapper">
+      <div className="top-slope" aria-hidden="true" />
+      <main className="page-shell">
+        <header className="navbar">
+          <a href="#projects">Projects</a>
+          <a href="#contact">Contact</a>
+        </header>
+
+        <section className="hero-section" aria-labelledby="hero-heading">
+          <div className="hero-content">
+            <h1 id="hero-heading" className="hero-title">
+              Noureldin Ibrahim
+              <br />
+              <span>crafts reliable digital experiences.</span>
+            </h1>
+            <p className="hero-copy">
+              I&apos;m a Computer Science student at <strong>UOttawa</strong> exploring how thoughtful
+              engineering, delightful interfaces, and collaborative learning can ship products people love.
+              I&apos;m especially energized by cyber security and AI—building trustworthy systems that protect
+              people while experimenting with intelligent tooling that amplifies what teams can deliver.
+            </p>
+          </div>
+
+          <aside className="terminal-card" aria-label="Quick facts terminal">
+            <div className="terminal-card__header">
+              <span className="terminal-card__dot terminal-card__dot--red" />
+              <span className="terminal-card__dot terminal-card__dot--amber" />
+              <span className="terminal-card__dot terminal-card__dot--green" />
+            </div>
+            <div className="terminal-card__body">
+              {terminalStatements.map((statement) => (
+                <div key={statement.label} className="terminal-line">
+                  <span className="terminal-input">{statement.label}</span>
+                  {statement.links ? (
+                    <span className="terminal-value">
+                      [
+                      {statement.links.map((link, index) => (
+                        <span key={link.href}>
+                          &quot;
+                          <a href={link.href} rel="noopener noreferrer" target="_blank">
+                            {link.label}
+                          </a>
+                          &quot;
+                          {index < statement.links.length - 1 ? ", " : ""}
+                        </span>
+                      ))}
+                      ]
+                    </span>
+                  ) : (
+                    <span className="terminal-value">{statement.value}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </aside>
+        </section>
+
+        <h2 id="projects" className="section-heading">
+          Projects
+        </h2>
+        <section className="projects-grid" aria-label="Project showcase">
+          {projects.map((project) => (
+            <article key={project.title} className="project-card">
+              <div
+                className="project-card__media"
+                style={{ background: project.gradient }}
+                aria-hidden="true"
+              />
+              <div className="project-card__body">
+                <h3 className="project-card__title">{project.title}</h3>
+                <p className="project-card__description">{project.description}</p>
+                <div className="project-card__skills">
+                  {project.skills.map((skill) => (
+                    <span key={skill} className="project-chip">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+                <div className="project-card__actions">
+                  <a
+                    className="project-link"
+                    href={project.demo}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-disabled={project.demo === "https://example.com"}
+                  >
+                    Live Preview ↗
+                  </a>
+                  <a
+                    className="project-link secondary"
+                    href={project.source}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View Repo
+                  </a>
+                </div>
+              </div>
+            </article>
+          ))}
+        </section>
+
+        <h2 id="contact" className="section-heading contact-section">
+          Contact me!
+        </h2>
+        <div className="contact-links">
+          <a href="mailto:nourmgi04@gmail.com">nourmgi04@gmail.com</a>
           <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            href="https://www.linkedin.com/in/noureldin-ibrahim-264576214/"
             target="_blank"
             rel="noopener noreferrer"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
+            LinkedIn
           </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
+          <a href="https://github.com/ibragot" target="_blank" rel="noopener noreferrer">
+            GitHub
           </a>
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      <footer className="site-footer">
+        <span>Made by Noureldin Ibrahim © {new Date().getFullYear()}</span>
       </footer>
     </div>
   );
