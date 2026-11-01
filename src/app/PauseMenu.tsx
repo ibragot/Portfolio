@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { audio } from "./audio";
 import Bubbles, { burst } from "./Bubbles";
+import HeroModel from "./HeroModel";
 import OceanCanvas from "./OceanCanvas";
 import Walkman from "./Walkman";
 import {
@@ -271,8 +272,7 @@ export default function PauseMenu() {
       {/* The illustrated character; each view moves it into a different pose */}
       <div className="hero" data-pose={view} aria-hidden="true">
         <div className="hero-float">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/images/nour.webp" alt="" width={1020} height={1904} />
+          <HeroModel />
         </div>
       </div>
 

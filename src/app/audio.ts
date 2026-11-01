@@ -96,7 +96,8 @@ class AudioEngine {
   /** Elapsed seconds in the current loop, for the Walkman's clock. */
   get elapsed() {
     if (!this.ctx || !this.current) return 0;
-    return (this.ctx.currentTime - this.current.startedAt) % this.current.duration;
+    // Before the new track starts (during the gap) the clock stays at 0.
+    return Math.max(0, this.ctx.currentTime - this.current.startedAt) % this.current.duration;
   }
 
   get track() {
@@ -125,26 +126,31 @@ class AudioEngine {
     // The listener may have skipped ahead or paused while this was loading.
     if (wanted !== this.trackIndex || !this.playing) return;
 
-    // Crossfade: fade the old loop out while the new one fades in.
+    // Switching tracks: fade the old loop out quickly, hold a short beat of silence,
+    // then fade the new one in, like the gap between songs on a real player.
     const now = ctx.currentTime;
-    const fade = 1.4;
+    const fadeOut = 0.3;
+    const gap = 0.35;
+    let startAt = now;
     if (this.current) {
       const old = this.current;
       old.gain.gain.cancelScheduledValues(now);
       old.gain.gain.setValueAtTime(old.gain.gain.value, now);
-      old.gain.gain.linearRampToValueAtTime(0, now + fade);
-      old.src.stop(now + fade + 0.05);
+      old.gain.gain.linearRampToValueAtTime(0, now + fadeOut);
+      old.src.stop(now + fadeOut + 0.02);
+      startAt = now + fadeOut + gap;
     }
+    const fadeIn = this.current ? 0.7 : 1.2;
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(1, now + fade);
+    gain.gain.setValueAtTime(0, startAt);
+    gain.gain.linearRampToValueAtTime(1, startAt + fadeIn);
     gain.connect(this.master);
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     src.loop = true; // gapless, unlike <audio loop>
     src.connect(gain);
-    src.start(now);
-    this.current = { src, gain, startedAt: now, duration: buffer.duration };
+    src.start(startAt);
+    this.current = { src, gain, startedAt: startAt, duration: buffer.duration };
     this.loading = false;
     this.emit();
 

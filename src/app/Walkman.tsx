@@ -48,14 +48,14 @@ export default function Walkman() {
   return (
     <div className="walkman" data-playing={playing}>
       <div className="wm-float">
-        <svg className="wm-wire" viewBox="0 0 703 274" aria-hidden="true">
-          <path d="M690 150 C 770 140, 820 -40, 760 -220 S 620 -560, 720 -820 S 960 -1080, 1020 -1300" />
+        <svg className="wm-wire" viewBox="0 0 759 274" aria-hidden="true">
+          <path d="M746 150 C 826 140, 876 -40, 816 -220 S 676 -560, 776 -820 S 1016 -1080, 1076 -1300" />
         </svg>
 
         <div className="wm-body">
           {/* Photo of the player; the live display sits over its screen */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="wm-photo" src="/images/walkman.webp" alt="" width={703} height={274} />
+          <img className="wm-photo" src="/images/walkman.webp" alt="" width={759} height={274} />
 
           <button
             className="wm-screen"
