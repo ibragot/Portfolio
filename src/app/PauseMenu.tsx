@@ -16,29 +16,71 @@ import {
 } from "./content";
 
 type SectionId = "profile" | "projects" | "experience" | "skills" | "activities" | "contact";
+type View = "main" | SectionId;
 
 // Each entry has its own size, indent and tilt so the list staggers like the game menu.
-const MENU: { id: SectionId; label: string; size: number; indent: number; tilt: number; hint: string }[] = [
-  { id: "profile", label: "Profile", size: 1.0, indent: 2.2, tilt: -1.5, hint: "Who I am" },
-  { id: "projects", label: "Projects", size: 1.25, indent: 0.6, tilt: 1, hint: "Things I built" },
-  { id: "experience", label: "Experience", size: 1.05, indent: 1.4, tilt: -0.5, hint: "Where I work" },
-  { id: "skills", label: "Skills", size: 0.95, indent: 2.6, tilt: 2, hint: "What I use" },
-  { id: "activities", label: "Activities", size: 1.0, indent: 1.0, tilt: -1, hint: "Community work" },
-  { id: "contact", label: "Contact", size: 1.1, indent: 2.0, tilt: 0.5, hint: "Say hello" },
+// `hint` labels the menu cursor; `ask` is the question shown inside the submenu.
+const MENU: {
+  id: SectionId;
+  label: string;
+  size: number;
+  indent: number;
+  tilt: number;
+  hint: string;
+  ask: string;
+}[] = [
+  { id: "profile", label: "Profile", size: 1.0, indent: 2.2, tilt: -1.5, hint: "Who I am", ask: "Who is Noureldin?" },
+  {
+    id: "projects",
+    label: "Projects",
+    size: 1.25,
+    indent: 0.6,
+    tilt: 1,
+    hint: "Things I built",
+    ask: "Which project do you want to see?",
+  },
+  {
+    id: "experience",
+    label: "Experience",
+    size: 1.05,
+    indent: 1.4,
+    tilt: -0.5,
+    hint: "Where I work",
+    ask: "Where has he worked?",
+  },
+  { id: "skills", label: "Skills", size: 0.95, indent: 2.6, tilt: 2, hint: "What I use", ask: "What does he build with?" },
+  {
+    id: "activities",
+    label: "Activities",
+    size: 1.0,
+    indent: 1.0,
+    tilt: -1,
+    hint: "Community work",
+    ask: "What else does he do?",
+  },
+  { id: "contact", label: "Contact", size: 1.1, indent: 2.0, tilt: 0.5, hint: "Say hello", ask: "How do you want to reach him?" },
 ];
 
-type Key = "nav" | "open" | "back" | null;
+type Key = "nav" | "open" | "back" | "switch" | null;
+type Wipe = { x: number; y: number; phase: "in" | "out"; n: number } | null;
+
+const reducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export default function PauseMenu() {
-  const [selected, setSelected] = useState<SectionId>("projects");
-  const [open, setOpen] = useState(false); // only matters on small screens
-  const [cut, setCut] = useState(0); // bumps on every confirm to replay the cut-in
+  const [view, setView] = useState<View>("main");
+  const [cursor, setCursor] = useState<SectionId>("projects"); // highlighted item on the main menu
+  const [cut, setCut] = useState(0); // bumps on every section switch to replay the slash
   const [pressed, setPressed] = useState<Key>(null);
+  const [wipe, setWipe] = useState<Wipe>(null);
   const screenRef = useRef<HTMLElement | null>(null);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const panelRef = useRef<HTMLElement | null>(null);
+  const subRef = useRef<HTMLElement | null>(null);
+  const busy = useRef(false);
 
-  const current = MENU.find((m) => m.id === selected)!;
+  const inSub = view !== "main";
+  const hovered = MENU.find((m) => m.id === cursor)!;
+  const section = inSub ? MENU.find((m) => m.id === view)! : null;
 
   const flashKey = useCallback((k: Key) => {
     setPressed(k);
@@ -46,7 +88,7 @@ export default function PauseMenu() {
   }, []);
 
   const select = useCallback((id: SectionId) => {
-    setSelected((prev) => {
+    setCursor((prev) => {
       if (prev !== id) audio.blip(MENU.findIndex((m) => m.id === id));
       return id;
     });
@@ -54,58 +96,121 @@ export default function PauseMenu() {
 
   const move = useCallback(
     (dir: 1 | -1) => {
-      const i = MENU.findIndex((m) => m.id === selected);
+      const i = MENU.findIndex((m) => m.id === cursor);
       const next = MENU[(i + dir + MENU.length) % MENU.length];
       select(next.id);
       tabRefs.current[next.id]?.focus();
       flashKey("nav");
     },
-    [selected, select, flashKey],
+    [cursor, select, flashKey],
   );
 
-  const confirm = useCallback(
-    (id: SectionId) => {
-      select(id);
-      setOpen(true);
+  /**
+   * Bubble wipe between the main menu and a submenu: a bubble grows from the click
+   * until it covers the screen, the view swaps underneath, then a hole opens in the
+   * bubble from the same point to reveal the new screen.
+   */
+  const transition = useCallback((to: View, x: number, y: number, after?: () => void) => {
+    if (busy.current) return;
+    if (reducedMotion()) {
+      setView(to);
+      after?.();
+      return;
+    }
+    busy.current = true;
+    const n = Date.now();
+    setWipe({ x, y, phase: "in", n });
+    window.setTimeout(() => {
+      setView(to);
       setCut((c) => c + 1);
+      setWipe({ x, y, phase: "out", n });
+      after?.();
+    }, 320);
+    window.setTimeout(() => {
+      setWipe((w) => (w && w.n === n ? null : w));
+      busy.current = false;
+    }, 320 + 520);
+  }, []);
+
+  const open = useCallback(
+    (id: SectionId, from?: { x: number; y: number }) => {
+      select(id);
       audio.confirm();
       flashKey("open");
       const r = tabRefs.current[id]?.getBoundingClientRect();
-      if (r) burst(r.left + r.width * 0.6, r.top + r.height / 2, 22);
-      // Move focus into the panel so keyboard and screen reader users land on the content.
-      requestAnimationFrame(() => panelRef.current?.focus({ preventScroll: true }));
+      const x = from?.x ?? (r ? r.left + r.width * 0.5 : window.innerWidth / 2);
+      const y = from?.y ?? (r ? r.top + r.height / 2 : window.innerHeight / 2);
+      burst(x, y, 24);
+      transition(id, x, y, () =>
+        requestAnimationFrame(() => subRef.current?.focus({ preventScroll: true })),
+      );
     },
-    [select, flashKey],
+    [select, flashKey, transition],
   );
 
   const back = useCallback(() => {
-    setOpen(false);
+    if (view === "main") return;
     audio.back();
     flashKey("back");
-    tabRefs.current[selected]?.focus();
-  }, [selected, flashKey]);
+    const returnTo = view;
+    transition("main", window.innerWidth * 0.25, window.innerHeight * 0.5, () =>
+      requestAnimationFrame(() => tabRefs.current[returnTo]?.focus({ preventScroll: true })),
+    );
+  }, [view, flashKey, transition]);
 
-  // Keyboard: arrows move the cursor from anywhere, Enter confirms, Esc goes back.
+  // Inside a submenu: jump to the previous or next section, like LB / RB in the game.
+  const cycle = useCallback(
+    (dir: 1 | -1) => {
+      if (view === "main") return;
+      const i = MENU.findIndex((m) => m.id === view);
+      const next = MENU[(i + dir + MENU.length) % MENU.length];
+      setView(next.id);
+      setCursor(next.id);
+      setCut((c) => c + 1);
+      audio.blip(MENU.findIndex((m) => m.id === next.id));
+      flashKey("switch");
+    },
+    [view, flashKey],
+  );
+
+  const goTo = useCallback(
+    (id: SectionId) => {
+      if (id === view) return;
+      setView(id);
+      setCursor(id);
+      setCut((c) => c + 1);
+      audio.confirm();
+    },
+    [view],
+  );
+
+  // Keyboard: arrows move the cursor, Esc goes back, Q/E or ←/→ switch sections in a submenu.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       audio.unlock();
       const target = e.target as HTMLElement;
-      if (target.closest("input, textarea")) return;
-      if (e.key === "Escape") back();
-      else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        if (target.closest(".panel")) return; // let the panel scroll
-        e.preventDefault();
-        move(e.key === "ArrowDown" ? 1 : -1);
+      if (target.closest("input, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (view === "main") {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          move(e.key === "ArrowDown" ? 1 : -1);
+        }
+        return;
       }
+      if (e.key === "Escape" || e.key === "Backspace") {
+        e.preventDefault();
+        back();
+      } else if (e.key === "q" || e.key === "Q" || e.key === "ArrowLeft") cycle(-1);
+      else if (e.key === "e" || e.key === "E" || e.key === "ArrowRight") cycle(1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [back, move]);
+  }, [view, back, move, cycle]);
 
   // Mouse parallax: layers drift by different amounts so the scene has depth.
   useEffect(() => {
     const el = screenRef.current;
-    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!el || reducedMotion()) return;
     let tx = 0;
     let ty = 0;
     let x = 0;
@@ -134,54 +239,70 @@ export default function PauseMenu() {
   const onPointerDown = (e: React.PointerEvent) => {
     audio.unlock();
     const target = e.target as HTMLElement;
-    if (target.closest(".panel-scroll, .wm-controls, input")) return;
+    if (target.closest(".sub-scroll, .wm-controls, input")) return;
     burst(e.clientX, e.clientY, 10);
     if (!target.closest("button, a")) audio.bubble();
   };
 
   return (
-    <main ref={screenRef} className="screen" data-open={open} onPointerDown={onPointerDown}>
+    <main
+      ref={screenRef}
+      className="screen"
+      data-view={inSub ? "sub" : "main"}
+      onPointerDown={onPointerDown}
+    >
       <div className="backdrop" aria-hidden="true">
         <OceanCanvas />
         <Stairs />
       </div>
       <Bubbles />
 
-      {/* White wedge with the giant vertical name */}
+      {/* White plate: a wedge on the main menu, a wide diagonal in submenus */}
       <div className="wedge" aria-hidden="true">
         <span className="wedge-name">NOURELDIN</span>
+      </div>
+
+      {section && (
+        <div className="ghost" key={`g-${section.id}`} aria-hidden="true">
+          {section.label}
+        </div>
+      )}
+
+      {/* The illustrated character; each view moves it into a different pose */}
+      <div className="hero" data-pose={view} aria-hidden="true">
+        <div className="hero-float">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/nour.webp" alt="" width={1020} height={1904} />
+        </div>
       </div>
 
       <Shards />
       <Walkman />
 
-      <header className="hud">
+      <header className="hud" inert={inSub}>
         <h1 className="hud-name">{profile.name}</h1>
         <p className="hud-sub">{profile.role}</p>
       </header>
 
-      <nav className="party" aria-label="Elsewhere">
+      <nav className="party" aria-label="Elsewhere" inert={inSub}>
         <PartyBadge href={profile.github} label="GitHub" glyph="gh" fill={0.92} i={0} />
         <PartyBadge href={profile.linkedin} label="LinkedIn" glyph="in" fill={0.74} i={1} />
         <PartyBadge href={`mailto:${profile.email}`} label="Email" glyph="@" fill={0.83} i={2} />
       </nav>
 
-      <div className="menu" role="tablist" aria-orientation="vertical" aria-label="Portfolio sections">
+      <nav className="menu" aria-label="Portfolio sections" inert={inSub}>
         {MENU.map((m, i) => {
-          const isSel = m.id === selected;
+          const isSel = m.id === cursor;
           return (
             <button
               key={m.id}
               ref={(el) => {
                 tabRefs.current[m.id] = el;
               }}
-              role="tab"
-              id={`tab-${m.id}`}
-              aria-selected={isSel}
-              aria-controls="panel"
-              tabIndex={isSel ? 0 : -1}
               className="menu-item"
               data-selected={isSel}
+              tabIndex={isSel ? 0 : -1}
+              aria-label={`${m.label}: ${m.hint}`}
               style={
                 {
                   "--size": m.size,
@@ -195,7 +316,7 @@ export default function PauseMenu() {
               }
               onPointerEnter={() => select(m.id)}
               onFocus={() => select(m.id)}
-              onClick={() => confirm(m.id)}
+              onClick={(e) => open(m.id, e.detail > 0 ? { x: e.clientX, y: e.clientY } : undefined)}
             >
               <span className="menu-float">
                 <span className="menu-label" data-text={m.label}>
@@ -205,54 +326,109 @@ export default function PauseMenu() {
             </button>
           );
         })}
-      </div>
+      </nav>
 
-      <section
-        id="panel"
-        ref={panelRef}
-        className="panel"
-        role="tabpanel"
-        aria-labelledby={`tab-${selected}`}
-        tabIndex={-1}
-      >
-        <div className="cutin" key={`cut-${cut}`} data-active={cut > 0} aria-hidden="true" />
-        <div className="panel-scroll">
-          <div className="panel-head">
-            <button className="panel-back" onClick={back}>
-              Back
-            </button>
-            <h2 className="panel-title" key={`t-${selected}-${cut}`}>
-              {current.label}
-            </h2>
+      {section && (
+        <section
+          ref={subRef}
+          className="sub"
+          aria-labelledby="sub-title"
+          tabIndex={-1}
+          key="sub"
+        >
+          <button className="sub-back" onClick={back}>
+            <span aria-hidden="true">◀</span> Back
+          </button>
+
+          <nav className="sub-nav" aria-label="Sections">
+            {MENU.map((m, i) => (
+              <button
+                key={m.id}
+                className="sub-nav-item"
+                data-current={m.id === section.id}
+                aria-current={m.id === section.id ? "page" : undefined}
+                style={{ "--i": i } as React.CSSProperties}
+                onPointerEnter={() => audio.blip(i)}
+                onClick={() => goTo(m.id)}
+              >
+                {m.label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="sub-col">
+            <div className="cutin" key={`cut-${cut}`} aria-hidden="true" />
+            <header className="sub-tabs">
+              <button className="sub-arrow" onClick={() => cycle(-1)} aria-label="Previous section">
+                <span aria-hidden="true">◀</span>
+                <kbd>Q</kbd>
+              </button>
+              <div className="sub-heading">
+                <h2 id="sub-title" key={`h-${section.id}`}>
+                  {section.label}
+                </h2>
+                <span className="sub-dots" aria-hidden="true">
+                  {MENU.map((m) => (
+                    <i key={m.id} data-on={m.id === section.id} />
+                  ))}
+                </span>
+              </div>
+              <button className="sub-arrow" onClick={() => cycle(1)} aria-label="Next section">
+                <kbd>E</kbd>
+                <span aria-hidden="true">▶</span>
+              </button>
+            </header>
+            <div className="sub-scroll">
+              <div className="sub-body" key={`b-${section.id}-${cut}`}>
+                {section.id === "profile" && <ProfilePanel />}
+                {section.id === "projects" && <ProjectsPanel />}
+                {section.id === "experience" && <ExperiencePanel />}
+                {section.id === "skills" && <SkillsPanel />}
+                {section.id === "activities" && <ActivitiesPanel />}
+                {section.id === "contact" && <ContactPanel />}
+              </div>
+            </div>
           </div>
-          <div className="panel-body" key={`b-${selected}-${cut}`}>
-            {selected === "profile" && <ProfilePanel />}
-            {selected === "projects" && <ProjectsPanel />}
-            {selected === "experience" && <ExperiencePanel />}
-            {selected === "skills" && <SkillsPanel />}
-            {selected === "activities" && <ActivitiesPanel />}
-            {selected === "contact" && <ContactPanel />}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <footer className="prompt" aria-hidden="true">
-        <p className="prompt-title" key={selected}>
-          {current.hint}
+        <p className="prompt-title" key={section ? `a-${section.id}` : `h-${cursor}`}>
+          {section ? section.ask : hovered.hint}
         </p>
         <span className="prompt-rule" />
         <p className="prompt-keys">
-          <span className="key" data-down={pressed === "nav"}>
-            <kbd>↑↓</kbd> Select
-          </span>
-          <span className="key" data-down={pressed === "open"}>
-            <kbd>↵</kbd> Open
-          </span>
-          <span className="key" data-down={pressed === "back"}>
-            <kbd>Esc</kbd> Back
-          </span>
+          {section ? (
+            <>
+              <span className="key" data-down={pressed === "switch"}>
+                <kbd>Q</kbd>
+                <kbd>E</kbd> Switch
+              </span>
+              <span className="key" data-down={pressed === "back"}>
+                <kbd>Esc</kbd> Back
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="key" data-down={pressed === "nav"}>
+                <kbd>↑↓</kbd> Select
+              </span>
+              <span className="key" data-down={pressed === "open"}>
+                <kbd>↵</kbd> Open
+              </span>
+            </>
+          )}
         </p>
       </footer>
+
+      {wipe && (
+        <div
+          className="wipe"
+          data-phase={wipe.phase}
+          aria-hidden="true"
+          style={{ "--x": `${wipe.x}px`, "--y": `${wipe.y}px` } as React.CSSProperties}
+        />
+      )}
     </main>
   );
 }

@@ -49,7 +49,7 @@ export default function Walkman() {
     <div className="walkman" data-playing={playing}>
       <div className="wm-float">
         <svg className="wm-wire" viewBox="0 0 703 274" aria-hidden="true">
-          <path d="M690 150 C 760 130, 760 -40, 600 -180 S 300 -520, 120 -760 S -120 -1000, -260 -1160" />
+          <path d="M690 150 C 770 140, 820 -40, 760 -220 S 620 -560, 720 -820 S 960 -1080, 1020 -1300" />
         </svg>
 
         <div className="wm-body">
