@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Inter, Instrument_Serif, Josefin_Sans } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -7,29 +7,42 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-const jetBrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains",
+const serif = Instrument_Serif({
+  variable: "--font-serif",
   subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
 });
+
+const caps = Josefin_Sans({
+  variable: "--font-caps",
+  subsets: ["latin"],
+  weight: ["400", "600"],
+});
+
+const description =
+  "Noureldin Ibrahim, Computer Science student at uOttawa building trustworthy software, with a focus on security and AI.";
 
 export const metadata: Metadata = {
   title: "Noureldin Ibrahim | Portfolio",
-  description:
-    "Noureldin Ibrahim · Computer Science student at UOttawa building thoughtful software projects.",
+  description,
   metadataBase: new URL("https://ibragot.github.io"),
   openGraph: {
     title: "Noureldin Ibrahim | Portfolio",
-    description:
-      "Placeholder portfolio highlighting Noureldin Ibrahim's projects, experience, and contact details.",
+    description,
     url: "https://www.noureldin.dev",
     siteName: "Noureldin Ibrahim Portfolio",
   },
   twitter: {
     card: "summary_large_image",
     title: "Noureldin Ibrahim | Portfolio",
-    description:
-      "Computer Science student at UOttawa building thoughtful digital products.",
+    description,
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0b1210",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({
@@ -39,9 +52,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${jetBrainsMono.variable}`}>
-        {children}
-      </body>
+      <body className={`${inter.variable} ${serif.variable} ${caps.variable}`}>{children}</body>
     </html>
   );
 }
