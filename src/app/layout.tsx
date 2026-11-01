@@ -14,6 +14,13 @@ const archivo = localFont({
   declarations: [{ prop: "font-stretch", value: "62% 125%" }],
 });
 
+// Pixel face for the Walkman's display.
+const pixel = localFont({
+  variable: "--font-pixel",
+  display: "swap",
+  src: "../fonts/vt323-latin-400-normal.woff2",
+});
+
 const description =
   "Noureldin Ibrahim, Computer Science at uOttawa. Full-stack apps, machine learning, and Roblox games.";
 
@@ -34,7 +41,7 @@ export const viewport: Viewport = { themeColor: "#0a1fa8" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={archivo.variable}>
+    <html lang="en" className={`${archivo.variable} ${pixel.variable}`}>
       <body>{children}</body>
     </html>
   );
