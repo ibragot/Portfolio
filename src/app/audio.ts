@@ -1,16 +1,16 @@
 "use client";
 
-// One shared AudioContext for both the ocean ambience and the menu sound effects.
+// One shared AudioContext for the radio's city ambience and the page's sound effects.
 // Browsers only allow audio after a click or key press, so the context is created
 // lazily by unlock(), which the page calls on the first pointer or key event.
 
 export type Track = { id: string; title: string; subtitle: string; src: string };
 
 export const TRACKS: Track[] = [
-  { id: "deep", title: "Deep water", subtitle: "Underwater", src: "/audio/deep.mp3" },
-  { id: "whale", title: "Whale song", subtitle: "Open ocean", src: "/audio/whale.mp3" },
-  { id: "shore", title: "Shoreline", subtitle: "Waves", src: "/audio/shore.mp3" },
-  { id: "harbor", title: "Harbor", subtitle: "Boats and gulls", src: "/audio/harbor.mp3" },
+  { id: "window", title: "Rain on the window", subtitle: "Light rain", src: "/audio/window.mp3" },
+  { id: "storm", title: "Thunderstorm", subtitle: "Heavy rain", src: "/audio/storm.mp3" },
+  { id: "street", title: "Night traffic", subtitle: "Wet streets", src: "/audio/street.mp3" },
+  { id: "bar", title: "Late-night bar", subtitle: "Downtown", src: "/audio/bar.mp3" },
 ];
 
 type Listener = () => void;
@@ -33,7 +33,7 @@ class AudioEngine {
   constructor() {
     if (typeof window === "undefined") return;
     try {
-      const saved = JSON.parse(localStorage.getItem("ambience") ?? "{}");
+      const saved = JSON.parse(localStorage.getItem("noir-radio") ?? "{}");
       if (typeof saved.track === "number" && TRACKS[saved.track]) this.trackIndex = saved.track;
       if (typeof saved.volume === "number") this.volume = Math.min(1, Math.max(0, saved.volume));
       if (typeof saved.sfx === "boolean") this.sfxOn = saved.sfx;
@@ -51,9 +51,12 @@ class AudioEngine {
 
   private emit() {
     this.listeners.forEach((fn) => fn());
+    window.dispatchEvent(
+      new CustomEvent("noir:station", { detail: { id: this.playing ? this.track.id : null } }),
+    );
     try {
       localStorage.setItem(
-        "ambience",
+        "noir-radio",
         JSON.stringify({ track: this.trackIndex, volume: this.volume, sfx: this.sfxOn }),
       );
     } catch {
@@ -126,11 +129,10 @@ class AudioEngine {
     // The listener may have skipped ahead or paused while this was loading.
     if (wanted !== this.trackIndex || !this.playing) return;
 
-    // Switching tracks: fade the old loop out quickly, hold a short beat of silence,
-    // then fade the new one in, like the gap between songs on a real player.
+    // Switching stations: the old one fades out under a short burst of tuning static,
+    // then the new one fades in, like turning the dial on an old radio.
     const now = ctx.currentTime;
-    const fadeOut = 0.3;
-    const gap = 0.35;
+    const fadeOut = 0.25;
     let startAt = now;
     if (this.current) {
       const old = this.current;
@@ -138,9 +140,10 @@ class AudioEngine {
       old.gain.gain.setValueAtTime(old.gain.gain.value, now);
       old.gain.gain.linearRampToValueAtTime(0, now + fadeOut);
       old.src.stop(now + fadeOut + 0.02);
-      startAt = now + fadeOut + gap;
+      startAt = now + 0.8;
+      this.staticBurst(now);
     }
-    const fadeIn = this.current ? 0.7 : 1.2;
+    const fadeIn = this.current ? 0.6 : 1.2;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, startAt);
     gain.gain.linearRampToValueAtTime(1, startAt + fadeIn);
@@ -206,6 +209,22 @@ class AudioEngine {
     this.emit();
   }
 
+  /** Tuning static between stations: a recorded burst if loaded, synthesized hiss if not. */
+  private staticBurst(at: number) {
+    const ctx = this.ctx!;
+    const play = (buf: AudioBuffer) => {
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const g = ctx.createGain();
+      g.gain.value = 0.55;
+      src.connect(g).connect(this.master);
+      src.start(at);
+    };
+    this.load({ id: "tune", title: "", subtitle: "", src: "/audio/tune.mp3" })
+      .then(play)
+      .catch(() => this.whoosh(0.8, 0.15));
+  }
+
   // ---------- Sound effects, synthesized so there are no extra files ----------
 
   private ready() {
@@ -269,23 +288,35 @@ class AudioEngine {
     osc.stop(t + 0.2);
   }
 
-  /** Bubble pop for clicks on the water. */
-  bubble() {
+  /** Thunder after a lightning strike: a sharp crack, then a low rolling rumble. */
+  thunder(delay = 0.15) {
     if (!this.ready()) return;
     const ctx = this.ctx!;
-    const t = ctx.currentTime;
-    const osc = ctx.createOscillator();
+    const t = ctx.currentTime + delay;
+    const dur = 3.2;
+    const len = Math.floor(ctx.sampleRate * dur);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    // Brown noise: integrated white noise, which sounds like distant rumble
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02;
+      d[i] = last * 3.5;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(900, t);
+    lp.frequency.exponentialRampToValueAtTime(120, t + dur);
     const g = ctx.createGain();
-    osc.type = "sine";
-    const base = 380 + Math.random() * 260;
-    osc.frequency.setValueAtTime(base, t);
-    osc.frequency.exponentialRampToValueAtTime(base * 2.6, t + 0.06);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.35, t + 0.008);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
-    osc.connect(g).connect(this.sfxBus);
-    osc.start(t);
-    osc.stop(t + 0.1);
+    g.gain.exponentialRampToValueAtTime(1.4, t + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.5, t + 0.5);
+    g.gain.linearRampToValueAtTime(0.7, t + 1.1);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(lp).connect(g).connect(this.sfxBus);
+    src.start(t);
   }
 
   private whoosh(duration: number, level: number) {

@@ -2,23 +2,22 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 
-// One variable family: condensed + heavy + italic for the menu, normal width for reading.
 // Self-hosted (SIL Open Font License), so builds never depend on Google Fonts being reachable.
-const archivo = localFont({
-  variable: "--font-archivo",
+// Tall condensed deco capitals for headings, like the lettering on 1930s towers.
+const deco = localFont({
+  variable: "--font-deco",
   display: "swap",
-  src: [
-    { path: "../fonts/archivo-latin-wdth-normal.woff2", style: "normal", weight: "100 900" },
-    { path: "../fonts/archivo-latin-wdth-italic.woff2", style: "italic", weight: "100 900" },
-  ],
-  declarations: [{ prop: "font-stretch", value: "62% 125%" }],
+  src: [{ path: "../fonts/big-shoulders-display-latin-wght-normal.woff2", weight: "100 900", style: "normal" }],
 });
 
-// Pixel face for the Walkman's display.
-const pixel = localFont({
-  variable: "--font-pixel",
+// A warm old-style serif for reading, with an optical-size axis for big and small text.
+const serif = localFont({
+  variable: "--font-serif",
   display: "swap",
-  src: "../fonts/vt323-latin-400-normal.woff2",
+  src: [
+    { path: "../fonts/fraunces-latin-opsz-normal.woff2", weight: "100 900", style: "normal" },
+    { path: "../fonts/fraunces-latin-opsz-italic.woff2", weight: "100 900", style: "italic" },
+  ],
 });
 
 const description =
@@ -37,11 +36,11 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: "Noureldin Ibrahim", description },
 };
 
-export const viewport: Viewport = { themeColor: "#0a1fa8" };
+export const viewport: Viewport = { themeColor: "#000000" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${archivo.variable} ${pixel.variable}`}>
+    <html lang="en" className={`${deco.variable} ${serif.variable}`}>
       <body>{children}</body>
     </html>
   );
