@@ -1,31 +1,46 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Lenis from "lenis";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { audio } from "./audio";
-import CityCanvas from "./CityCanvas";
 import Radio from "./Radio";
+import Scene from "./Scene";
+import { alley, lookup, moon, redroofs, rooftop } from "./scenes";
 import { activities, education, experience, profile, projects, skills, type Project } from "./content";
 
 const FLOORS = [
-  { id: "lobby", label: "Lobby", n: "L" },
-  { id: "about", label: "About", n: "1" },
-  { id: "projects", label: "Projects", n: "2" },
-  { id: "experience", label: "Experience", n: "3" },
-  { id: "skills", label: "Skills", n: "4" },
-  { id: "activities", label: "Activities", n: "5" },
-  { id: "contact", label: "Contact", n: "6" },
+  { id: "lobby", label: "Above the city", n: "R" },
+  { id: "about", label: "About", n: "9" },
+  { id: "projects", label: "Projects", n: "7" },
+  { id: "experience", label: "Experience", n: "5" },
+  { id: "skills", label: "Skills", n: "3" },
+  { id: "activities", label: "Activities", n: "2" },
+  { id: "contact", label: "Contact", n: "1" },
 ] as const;
 
 type FloorId = (typeof FLOORS)[number]["id"];
 
 const reduced = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+let lenis: Lenis | null = null;
+
 export default function NoirCity() {
   const [floor, setFloor] = useState<FloorId>("lobby");
 
-  // Reveal blocks as they come into view; mark which floor is in the middle of the screen
   useEffect(() => {
     document.documentElement.classList.add("js");
+
+    // Smooth, weighted scrolling for the descent
+    let raf = 0;
+    if (!reduced()) {
+      lenis = new Lenis({ lerp: 0.09, smoothWheel: true });
+      const loop = (t: number) => {
+        lenis?.raf(t);
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+    }
+
     const reveal = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
@@ -35,7 +50,7 @@ export default function NoirCity() {
           }
         }
       },
-      { rootMargin: "0px 0px -12% 0px", threshold: 0.12 },
+      { rootMargin: "0px 0px -10% 0px", threshold: 0.1 },
     );
     document.querySelectorAll("[data-reveal]").forEach((el) => reveal.observe(el));
 
@@ -53,25 +68,34 @@ export default function NoirCity() {
     const unlock = () => audio.unlock();
     window.addEventListener("pointerdown", unlock, { once: true });
     window.addEventListener("keydown", unlock, { once: true });
+    const onThunder = () => audio.thunder(0.2 + Math.random() * 0.3);
+    window.addEventListener("noir:thunder", onThunder);
+
     return () => {
+      cancelAnimationFrame(raf);
+      lenis?.destroy();
+      lenis = null;
       reveal.disconnect();
       floors.disconnect();
+      window.removeEventListener("noir:thunder", onThunder);
     };
   }, []);
 
   const goTo = useCallback((id: FloorId) => {
     audio.blip(FLOORS.findIndex((f) => f.id === id));
-    document.getElementById(id)?.scrollIntoView({ behavior: reduced() ? "auto" : "smooth" });
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (lenis) lenis.scrollTo(el, { duration: 1.6 });
+    else el.scrollIntoView({ behavior: reduced() ? "auto" : "smooth" });
   }, []);
 
   return (
     <>
-      <CityCanvas />
       <Elevator floor={floor} onGo={goTo} />
       <Radio />
 
       <main className="page">
-        <Hero />
+        <Hero onGo={goTo} />
         <About />
         <Projects />
         <Experience />
@@ -83,11 +107,10 @@ export default function NoirCity() {
   );
 }
 
-/* ---------- Elevator floor dial: fixed navigation ---------- */
+/* ---------- Elevator floor dial ---------- */
 
 function Elevator({ floor, onGo }: { floor: FloorId; onGo: (id: FloorId) => void }) {
   const i = FLOORS.findIndex((f) => f.id === floor);
-  // Needle sweeps a half circle from -80deg (lobby) to +80deg (top floor)
   const angle = -80 + (160 * i) / (FLOORS.length - 1);
   const [open, setOpen] = useState(false);
   return (
@@ -139,38 +162,73 @@ function Elevator({ floor, onGo }: { floor: FloorId; onGo: (id: FloorId) => void
   );
 }
 
-/* ---------- Lobby ---------- */
+/* ---------- A painted plate: full-bleed scene with a caption ---------- */
 
-function Hero() {
+function Plate({
+  factory,
+  caption,
+  className,
+  children,
+  label,
+}: {
+  factory: Parameters<typeof Scene>[0]["factory"];
+  caption: string;
+  className?: string;
+  children?: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <div className={`plate ${className ?? ""}`}>
+      <Scene factory={factory} className="plate-canvas" label={label} />
+      <span className="plate-fade" aria-hidden="true" />
+      <p className="plate-caption" aria-hidden="true">
+        {caption}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+/* ---------- Lobby: above the rooftops, under the moon ---------- */
+
+function Hero({ onGo }: { onGo: (id: FloorId) => void }) {
   const first = "NOURELDIN";
   const last = "IBRAHIM";
   return (
     <section id="lobby" className="hero">
-      <h1 className="hero-name" aria-label={profile.name}>
-        <span className="hero-line" aria-hidden="true">
-          {first.split("").map((ch, i) => (
-            <span key={i} className="hero-ch" style={{ "--i": i } as React.CSSProperties}>
-              {ch}
+      <Plate factory={moon} caption="Above the city, a little after midnight" className="plate-hero" label="Moonlit rooftops and spires">
+        <div className="hero-copy">
+          <h1 className="hero-name" aria-label={profile.name}>
+            <span className="hero-line" aria-hidden="true">
+              {first.split("").map((ch, i) => (
+                <span key={i} className="hero-ch" style={{ "--i": i } as React.CSSProperties}>
+                  {ch}
+                </span>
+              ))}
             </span>
-          ))}
-        </span>
-        <span className="hero-line hero-line-2" aria-hidden="true">
-          {last.split("").map((ch, i) => (
-            <span key={i} className="hero-ch" style={{ "--i": i + first.length } as React.CSSProperties}>
-              {ch}
+            <span className="hero-line hero-line-2" aria-hidden="true">
+              {last.split("").map((ch, i) => (
+                <span key={i} className="hero-ch" style={{ "--i": i + first.length } as React.CSSProperties}>
+                  {ch}
+                </span>
+              ))}
             </span>
-          ))}
-        </span>
-      </h1>
-      <div className="hero-plate">
-        <p className="hero-role">Software engineer, Computer Science at uOttawa</p>
-        <p className="hero-hint">
-          Scroll down into the city. Move your cursor over the windows, and click the sky.
-        </p>
-      </div>
-      <span className="hero-scroll" aria-hidden="true">
-        <i />
-      </span>
+          </h1>
+          <p className="hero-role">Software engineer, Computer Science at uOttawa</p>
+          <div className="hero-actions">
+            <button className="btn" onClick={() => onGo("projects")}>
+              See my work
+            </button>
+            <a className="btn btn-ghost" href={profile.github} target="_blank" rel="noreferrer">
+              GitHub
+            </a>
+            <a className="btn btn-ghost" href={profile.linkedin} target="_blank" rel="noreferrer">
+              LinkedIn
+            </a>
+          </div>
+          <p className="hero-hint">Scroll down into the city. Hover the windows, click the sky.</p>
+        </div>
+      </Plate>
     </section>
   );
 }
@@ -180,142 +238,107 @@ function Hero() {
 function About() {
   return (
     <section id="about" className="about">
-      <div className="blade" data-reveal data-no-strike aria-hidden="true">
-        {"NOUR".split("").map((ch, i) => (
-          <span key={i} className="blade-ch" style={{ "--i": i } as React.CSSProperties}>
-            {ch}
-          </span>
-        ))}
-      </div>
-      <div className="panel about-text" data-reveal>
-        <h2 className="title">About</h2>
-        <p className="lead">{profile.intro}</p>
-        <dl className="facts">
-          <div>
-            <dt>School</dt>
-            <dd>{education.school}</dd>
-          </div>
-          <div>
-            <dt>Program</dt>
-            <dd>{education.program}</dd>
-          </div>
-          <div>
-            <dt>Graduating</dt>
-            <dd>{education.date}</dd>
-          </div>
-          <div>
-            <dt>Based in</dt>
-            <dd>{profile.location}</dd>
-          </div>
-        </dl>
-      </div>
-    </section>
-  );
-}
-
-/* ---------- Projects: a walk along a row of towers ---------- */
-
-function Projects() {
-  const sectionRef = useRef<HTMLElement | null>(null);
-  const trackRef = useRef<HTMLDivElement | null>(null);
-
-  // While the section is pinned, vertical scroll pans the row of towers sideways
-  useEffect(() => {
-    const section = sectionRef.current;
-    const track = trackRef.current;
-    if (!section || !track) return;
-    let raf = 0;
-    const update = () => {
-      raf = 0;
-      if (window.innerWidth < 900) {
-        track.style.transform = "";
-        return;
-      }
-      const r = section.getBoundingClientRect();
-      const span = section.offsetHeight - window.innerHeight;
-      const t = Math.min(1, Math.max(0, -r.top / Math.max(1, span)));
-      const max = track.scrollWidth - window.innerWidth;
-      track.style.transform = `translate3d(${-t * max}px, 0, 0)`;
-      section.style.setProperty("--walk", t.toFixed(3));
-    };
-    const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(update);
-    };
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, []);
-
-  return (
-    <section id="projects" ref={sectionRef} className="projects" style={{ "--count": projects.length } as React.CSSProperties}>
-      <div className="projects-pin">
-        <div className="projects-track" ref={trackRef}>
-          <div className="projects-intro" data-reveal>
-            <h2 className="title title-xl">Projects</h2>
-            <p className="lead">Three things I built. Hover a tower to light it up.</p>
-            <span className="projects-arrow" aria-hidden="true">
-              Keep scrolling
-              <i />
+      <Plate factory={rooftop} caption="The rooftops, east side" className="plate-mid" label="Rooftops at night under the moon" />
+      <div className="about-body">
+        <div className="blade" data-reveal aria-hidden="true">
+          {"NOUR".split("").map((ch, i) => (
+            <span key={i} className="blade-ch" style={{ "--i": i } as React.CSSProperties}>
+              {ch}
             </span>
-          </div>
-          {projects.map((p, i) => (
-            <Tower key={p.id} p={p} i={i} />
           ))}
+        </div>
+        <div className="about-text" data-reveal>
+          <h2 className="title">About</h2>
+          <p className="lead">{profile.intro}</p>
+          <dl className="facts">
+            <div>
+              <dt>School</dt>
+              <dd>{education.school}</dd>
+            </div>
+            <div>
+              <dt>Program</dt>
+              <dd>{education.program}</dd>
+            </div>
+            <div>
+              <dt>Graduating</dt>
+              <dd>{education.date}</dd>
+            </div>
+            <div>
+              <dt>Based in</dt>
+              <dd>{profile.location}</dd>
+            </div>
+          </dl>
         </div>
       </div>
     </section>
   );
 }
 
-function Tower({ p, i }: { p: Project; i: number }) {
-  const [imgOk, setImgOk] = useState(Boolean(p.image));
-  // A fixed pseudo-random pattern per tower, so the windows light in a scattered order
-  const windows = useMemo(
-    () =>
-      Array.from({ length: 48 }, (_, k) => {
-        const v = Math.sin((k + 1) * (i + 3) * 12.9898) * 43758.5453;
-        return v - Math.floor(v);
-      }),
-    [i],
-  );
+/* ---------- Projects ---------- */
+
+const ARCH: Record<string, string> = {
+  "wizard-duel": "arch-duel",
+  recommender: "arch-cinema",
+  tilawah: "arch-moon",
+};
+
+function Projects() {
   return (
-    <article
-      className="tower"
-      data-reveal
-      style={{ "--i": i } as React.CSSProperties}
-      onPointerEnter={() => audio.blip(i + 2)}
-    >
-      <div className="tower-crown" aria-hidden="true">
-        {windows.map((r, k) => (
-          <i key={k} style={{ "--d": `${Math.round(r * 520)}ms`, "--r": r } as React.CSSProperties} />
+    <section id="projects" className="projects">
+      <Plate factory={redroofs} caption="Looking down over midtown" className="plate-mid" label="Red sky over rooftops seen from above">
+        <h2 className="plate-title" data-reveal>
+          Projects
+        </h2>
+      </Plate>
+      <div className="project-list">
+        {projects.map((p, i) => (
+          <ProjectRow key={p.id} p={p} i={i} />
         ))}
       </div>
-      <div className="tower-body">
-        <header className="tower-head">
-          <h3>{p.title}</h3>
-          <p>
-            {p.kind}
-            <span>{p.date}</span>
-          </p>
-        </header>
+    </section>
+  );
+}
+
+function ProjectRow({ p, i }: { p: Project; i: number }) {
+  const [imgOk, setImgOk] = useState(Boolean(p.image));
+  const archRef = useRef<HTMLDivElement | null>(null);
+  // The scene inside the arch leans toward the cursor, like looking through a window
+  const onMove = (e: React.PointerEvent) => {
+    const el = archRef.current;
+    if (!el || e.pointerType === "touch") return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--lx", ((e.clientX - r.left) / r.width - 0.5).toFixed(3));
+    el.style.setProperty("--ly", ((e.clientY - r.top) / r.height - 0.5).toFixed(3));
+  };
+  return (
+    <article className="project" data-reveal style={{ "--i": i } as React.CSSProperties} onPointerMove={onMove}>
+      <div className={`arch ${ARCH[p.id] ?? ""}`} ref={archRef} aria-hidden="true">
+        <span className="arch-back" />
+        <span className="arch-front" />
+        <span className="arch-fx">
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+        </span>
+        <span className="arch-frame" />
+      </div>
+      <div className="project-body">
+        <p className="project-n">
+          {String(i + 1).padStart(2, "0")}
+          <span>{p.kind}</span>
+          <span>{p.date}</span>
+        </p>
+        <h3>{p.title}</h3>
+        <p className="project-summary">{p.summary}</p>
         {p.image && imgOk && (
           // Hosted on Roblox's CDN; hidden if it ever stops loading.
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            className="tower-shot"
-            src={p.image}
-            alt={`${p.title} gameplay`}
-            loading="lazy"
-            onError={() => setImgOk(false)}
-          />
+          <img className="project-shot" src={p.image} alt={`${p.title} gameplay`} loading="lazy" onError={() => setImgOk(false)} />
         )}
-        <p className="tower-summary">{p.summary}</p>
-        <ul className="tower-points">
+        <ul className="points">
           {p.points.slice(0, 3).map((pt) => (
             <li key={pt}>{pt}</li>
           ))}
@@ -337,45 +360,37 @@ function Tower({ p, i }: { p: Project; i: number }) {
   );
 }
 
-/* ---------- Experience: a facade caught in a spotlight ---------- */
+/* ---------- Experience: street level, looking up ---------- */
 
 function Experience() {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const onMove = (e: React.PointerEvent) => {
-    const el = ref.current;
-    if (!el || e.pointerType === "touch") return;
-    const r = el.getBoundingClientRect();
-    el.style.setProperty("--sx", `${e.clientX - r.left}px`);
-    el.style.setProperty("--sy", `${e.clientY - r.top}px`);
-  };
   return (
     <section id="experience" className="experience">
-      <h2 className="title title-xl" data-reveal>
-        Experience
-      </h2>
-      <div className="facade" ref={ref} onPointerMove={onMove} data-reveal data-no-strike>
-        <span className="facade-piers" aria-hidden="true" />
-        <span className="facade-spot" aria-hidden="true" />
-        {experience.map((x) => (
-          <article key={x.title + x.org} className="facade-card">
-            <p className="facade-sign">{x.org}</p>
-            <h3>{x.title}</h3>
-            <p className="facade-meta">
-              {x.date}, {x.where}
-            </p>
-            <ul className="tower-points">
-              {x.points.map((pt) => (
-                <li key={pt}>{pt}</li>
-              ))}
-            </ul>
-          </article>
-        ))}
-      </div>
+      <Plate factory={lookup} caption="Street level, looking up" className="plate-tall" label="Lit towers seen from below">
+        <div className="exp-overlay">
+          <h2 className="plate-title" data-reveal>
+            Experience
+          </h2>
+          {experience.map((x) => (
+            <article key={x.title + x.org} className="panel exp-card" data-reveal data-no-strike>
+              <p className="exp-org">{x.org}</p>
+              <h3>{x.title}</h3>
+              <p className="meta">
+                {x.date}, {x.where}
+              </p>
+              <ul className="points">
+                {x.points.map((pt) => (
+                  <li key={pt}>{pt}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      </Plate>
     </section>
   );
 }
 
-/* ---------- Skills: a building face where every lit window is a skill ---------- */
+/* ---------- Skills: lit windows on a building face ---------- */
 
 function Skills() {
   return (
@@ -414,10 +429,10 @@ function Activities() {
         <article key={a.title} className="panel plaque" data-reveal>
           <h2 className="title">Activities</h2>
           <h3>{a.org}</h3>
-          <p className="facade-meta">
+          <p className="meta">
             {a.title}, {a.date}
           </p>
-          <ul className="tower-points">
+          <ul className="points">
             {a.points.map((pt) => (
               <li key={pt}>{pt}</li>
             ))}
@@ -428,7 +443,7 @@ function Activities() {
   );
 }
 
-/* ---------- Contact: a marquee on the wet street ---------- */
+/* ---------- Contact: the alley, one lamp ---------- */
 
 function Contact() {
   const [copied, setCopied] = useState(false);
@@ -444,31 +459,29 @@ function Contact() {
   };
   return (
     <section id="contact" className="contact">
-      <div className="lamp" aria-hidden="true">
-        <span className="lamp-head" />
-        <span className="lamp-cone" />
-        <span className="lamp-post" />
-      </div>
-      <div className="marquee" data-reveal data-no-strike>
-        <h2 className="marquee-title">Contact</h2>
-        <p className="lead">Looking for software engineering co-op roles. Email is the fastest way to reach me.</p>
-        <a className="marquee-email" href={`mailto:${profile.email}`}>
-          {profile.email}
-        </a>
-        <div className="marquee-actions">
-          <button className="btn" onClick={copy} data-done={copied}>
-            {copied ? "Copied" : "Copy email"}
-          </button>
-          <a className="btn btn-ghost" href={profile.github} target="_blank" rel="noreferrer">
-            GitHub
+      <Plate factory={alley} caption="The alley off 5th, one lamp still on" className="plate-alley" label="A dark rainy alley lit by a single street lamp">
+        <div className="contact-card" data-reveal data-no-strike>
+          <h2 className="marquee-title">Contact</h2>
+          <p className="lead">Looking for software engineering co-op roles. Email is the fastest way to reach me.</p>
+          <a className="contact-email" href={`mailto:${profile.email}`}>
+            {profile.email}
           </a>
-          <a className="btn btn-ghost" href={profile.linkedin} target="_blank" rel="noreferrer">
-            LinkedIn
-          </a>
+          <div className="contact-actions">
+            <button className="btn" onClick={copy} data-done={copied}>
+              {copied ? "Copied" : "Copy email"}
+            </button>
+            <a className="btn btn-ghost" href={profile.github} target="_blank" rel="noreferrer">
+              GitHub
+            </a>
+            <a className="btn btn-ghost" href={profile.linkedin} target="_blank" rel="noreferrer">
+              LinkedIn
+            </a>
+          </div>
         </div>
-      </div>
+      </Plate>
       <footer className="foot">
         <p>Noureldin Ibrahim, Ottawa</p>
+        <p>City illustrations used with the artist&apos;s permission.</p>
       </footer>
     </section>
   );
