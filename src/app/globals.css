@@ -4143,6 +4143,96 @@ body {
   }
 }
 
+/* ---------- Title screen: the first press turns the sound on ---------- */
+
+.screen[data-entered="false"] :is(.menu-item, .hud, .badge, .walkman, .hero) {
+  animation-play-state: paused;
+}
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  text-align: center;
+  cursor: pointer;
+  background: radial-gradient(ellipse at 50% 45%, rgb(10 31 168 / 0.55), rgb(2 6 40 / 0.94) 75%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  -webkit-tap-highlight-color: transparent;
+}
+.boot[data-out="true"] {
+  pointer-events: none;
+  animation: bootOut 700ms var(--ease-out) forwards;
+}
+@keyframes bootOut {
+  to { opacity: 0; transform: scale(1.12); filter: blur(6px); }
+}
+.boot-inner {
+  display: grid;
+  justify-items: center;
+  gap: 1.2rem;
+  animation: flashIn 700ms var(--spring) both;
+}
+.boot-kicker {
+  font-size: clamp(0.75rem, 1.1vw, 0.95rem);
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--surf);
+}
+.boot-title {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 900;
+  font-stretch: 80%;
+  font-size: clamp(3rem, 11vw, 9rem);
+  line-height: 0.85;
+  text-transform: uppercase;
+  color: var(--paper);
+  text-shadow: 0.06em 0.06em 0 var(--red);
+  transform: rotate(-4deg);
+}
+.boot-title span {
+  font-size: 0.42em;
+  color: var(--surf);
+  text-shadow: none;
+}
+.boot-press {
+  margin-top: 0.6rem;
+  padding: 0.35em 1.4em;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 900;
+  font-size: clamp(1.1rem, 2.4vw, 2rem);
+  text-transform: uppercase;
+  transform: skewX(-12deg);
+  box-shadow: -8px 6px 0 var(--red);
+  animation: pressPulse 1.4s ease-in-out infinite;
+}
+@keyframes pressPulse {
+  50% { opacity: 0.55; transform: skewX(-12deg) scale(0.97); }
+}
+.boot-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-style: italic;
+  font-weight: 700;
+  color: var(--foam);
+  font-size: clamp(0.85rem, 1.2vw, 1.05rem);
+}
+.boot-hint svg {
+  width: 1.3em;
+  height: 1.3em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
 /* ---------- Small screens ---------- */
 
 @media (max-width: 899px) {

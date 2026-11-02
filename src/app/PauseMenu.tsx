@@ -75,6 +75,42 @@ export default function PauseMenu() {
   const [ranks, setRanks] = useState<Record<string, number>>({});
   const [rankUp, setRankUp] = useState<{ id: string; rank: number; n: number } | null>(null);
   const [skill, setSkill] = useState<string | null>(null);
+  // Title screen: browsers only allow sound after a click, tap or key press, so the
+  // first press here is what turns on the music and every sound effect.
+  const [entered, setEntered] = useState(false);
+  const [bootGone, setBootGone] = useState(false);
+  const enter = useCallback(() => {
+    if (entered) return;
+    audio.unlock();
+    if (!audio.playing) void audio.play();
+    // The chime waits for the browser to finish switching sound on, or it would be swallowed
+    const ctx = audio.ctx;
+    if (ctx && ctx.state !== "running") ctx.resume().then(() => audio.confirm(), () => {});
+    else audio.confirm();
+    setEntered(true);
+    window.setTimeout(() => setBootGone(true), 750);
+  }, [entered]);
+  useEffect(() => {
+    if (entered) return;
+    // Some browsers already allow sound for this site: then there is nothing to wait for
+    const skip = window.setTimeout(() => {
+      if (audio.ctx?.state === "running") {
+        setEntered(true);
+        setBootGone(true);
+      }
+    }, 500);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      enter();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      clearTimeout(skip);
+      window.removeEventListener("keydown", onKey, true);
+    };
+  }, [entered, enter]);
 
   const scoreHobby = useCallback(
     (id: string) => {
@@ -269,6 +305,7 @@ export default function PauseMenu() {
       ref={screenRef}
       className="screen"
       data-view={inSub ? "sub" : "main"}
+      data-entered={entered}
       onPointerDown={onPointerDown}
     >
       <div className="backdrop" aria-hidden="true">
@@ -457,6 +494,36 @@ export default function PauseMenu() {
           )}
         </p>
       </footer>
+
+      {!bootGone && (
+        <div
+          className="boot"
+          data-out={entered}
+          role="button"
+          tabIndex={0}
+          aria-label="Press any button to enter with sound"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            enter();
+          }}
+        >
+          <div className="boot-inner">
+            <span className="boot-kicker">Portfolio of Noureldin Ibrahim</span>
+            <h2 className="boot-title">
+              Noureldin<span>.dev</span>
+            </h2>
+            <p className="boot-press">Press any button</p>
+            <p className="boot-hint">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
+                <rect x="3" y="14" width="4" height="7" rx="1.5" />
+                <rect x="17" y="14" width="4" height="7" rx="1.5" />
+              </svg>
+              Sound on: ocean ambience and menu effects
+            </p>
+          </div>
+        </div>
+      )}
 
       {wipe && (
         <div
