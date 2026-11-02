@@ -98,6 +98,9 @@ class AudioEngine {
       this.sfxBus.gain.value = 0.35;
       this.sfxBus.connect(this.ctx.destination);
       this.ctx.onstatechange = () => this.emit();
+      // iPhone: play through the silent switch like a music app, instead of being muted by it
+      const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+      if (session) session.type = "playback";
     }
     if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
   }

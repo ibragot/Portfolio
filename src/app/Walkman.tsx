@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { audio, TRACKS } from "./audio";
 
 function useEngine() {
@@ -71,15 +71,13 @@ export default function Walkman() {
               <span className="wm-glyph" aria-hidden="true">
                 ♫
               </span>
-              <span className="wm-marquee">
-                <span key={track.id}>{track.title}</span>
-              </span>
+              <Ticker text={track.title} />
             </span>
             <span className="wm-row wm-sub">
               <span className="wm-glyph" aria-hidden="true">
                 ≈
               </span>
-              {blocked ? "Click for sound" : playing ? track.subtitle : "Press play"}
+              <Ticker text={blocked ? "Click anywhere for sound" : playing ? track.subtitle : "Press play"} />
             </span>
             <span className="wm-row wm-status">
               <span aria-hidden="true">{loading ? "…" : playing ? "▶" : "❚❚"}</span>
@@ -149,5 +147,36 @@ export default function Walkman() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** One line of the display. Scrolls when the text is wider than the screen, so nothing gets cut off. */
+function Ticker({ text }: { text: string }) {
+  const box = useRef<HTMLSpanElement>(null);
+  const first = useRef<HTMLSpanElement>(null);
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const measure = () => {
+      const b = box.current;
+      const f = first.current;
+      if (!b || !f) return;
+      setW(f.offsetWidth > b.clientWidth + 1 ? f.offsetWidth : 0);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (box.current) ro.observe(box.current);
+    return () => ro.disconnect();
+  }, [text]);
+  return (
+    <span className="wm-marquee" ref={box} key={text}>
+      <span
+        className="wm-tick"
+        data-scroll={w > 0}
+        style={{ "--w": `${w}px`, "--dur": `${Math.max(5, w / 22)}s` } as React.CSSProperties}
+      >
+        <span ref={first}>{text}</span>
+        {w > 0 && <span aria-hidden="true">{text}</span>}
+      </span>
+    </span>
   );
 }

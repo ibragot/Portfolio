@@ -6,6 +6,8 @@ import Bubbles, { burst } from "./Bubbles";
 import HeroModel from "./HeroModel";
 import OceanCanvas from "./OceanCanvas";
 import Walkman from "./Walkman";
+import { FaGithub, FaLinkedinIn } from "react-icons/fa6";
+import { MdAlternateEmail } from "react-icons/md";
 import { GAMES } from "./Hobbies";
 import { DuelStage } from "./Duel";
 import { LibraryStage } from "./Library";
@@ -302,9 +304,9 @@ export default function PauseMenu() {
       </header>
 
       <nav className="party" aria-label="Elsewhere" inert={inSub}>
-        <PartyBadge href={profile.github} label="GitHub" glyph="gh" fill={0.92} i={0} />
-        <PartyBadge href={profile.linkedin} label="LinkedIn" glyph="in" fill={0.74} i={1} />
-        <PartyBadge href={`mailto:${profile.email}`} label="Email" glyph="@" fill={0.83} i={2} />
+        <PartyBadge href={profile.github} label="GitHub" glyph={<FaGithub />} fill={0.92} i={0} />
+        <PartyBadge href={profile.linkedin} label="LinkedIn" glyph={<FaLinkedinIn />} fill={0.74} i={1} />
+        <PartyBadge href={`mailto:${profile.email}`} label="Email" glyph={<MdAlternateEmail />} fill={0.83} i={2} />
       </nav>
 
       <nav className="menu" aria-label="Portfolio sections" inert={inSub}>
@@ -536,7 +538,7 @@ function PartyBadge({
 }: {
   href: string;
   label: string;
-  glyph: string;
+  glyph: React.ReactNode;
   fill: number;
   i: number;
 }) {
@@ -747,6 +749,7 @@ function StatsRadar() {
   return (
     <div className="radar">
       <p className="side-kicker">Social stats</p>
+      <div className="radar-wrap">
       <svg viewBox="-20 -6 240 212" className="radar-svg" role="img" aria-label="Social stats chart">
         {[1, 2, 3, 4, 5].map((k) => (
           <polygon key={k} points={ring((k / 5) * 72)} className="radar-ring" />
@@ -769,6 +772,7 @@ function StatsRadar() {
           );
         })}
       </svg>
+      </div>
       <div className="radar-info" key={cur.k}>
         <span className="radar-title">
           {cur.k} <b>Lv {cur.lv}</b> <em>{cur.title}</em>
@@ -925,18 +929,17 @@ function ActivitiesPanel({
           <div className="stage-top">
             <span className="stage-label">Play</span>
             <span className="stage-hint">Win to rank up this social link</span>
+            {/* Lives in the header strip so it never covers the game */}
+            {rankUp && rankUp.id === h.id && (
+              <span className="rankup" key={rankUp.n} aria-live="polite">
+                <b>Rank up!</b>
+                <span>{rankUp.rank === 5 ? "MAX" : `Rank ${rankUp.rank}`}</span>
+              </span>
+            )}
           </div>
           <div className="stage-body">
             <Game onScore={() => onScore(h.id)} />
           </div>
-          {rankUp && rankUp.id === h.id && (
-            <div className="rankup" key={rankUp.n} aria-live="polite">
-              <b>Rank up!</b>
-              <span>
-                {h.name} reached {rankUp.rank === 5 ? "MAX rank" : `rank ${rankUp.rank}`}
-              </span>
-            </div>
-          )}
         </div>
         <ol className="ranks">
           {h.ranks.map((line, i) => (
