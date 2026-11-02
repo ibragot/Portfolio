@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Instrument_Serif, Josefin_Sans } from "next/font/google";
+import { Bodoni_Moda, Inter, Josefin_Sans } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -7,17 +7,16 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-const serif = Instrument_Serif({
+const serif = Bodoni_Moda({
   variable: "--font-serif",
   subsets: ["latin"],
-  weight: "400",
   style: ["normal", "italic"],
 });
 
 const caps = Josefin_Sans({
   variable: "--font-caps",
   subsets: ["latin"],
-  weight: ["400", "600"],
+  weight: ["300", "400", "600"],
 });
 
 const description =
@@ -41,7 +40,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b1210",
+  themeColor: "#0f2a34",
   colorScheme: "dark",
 };
 

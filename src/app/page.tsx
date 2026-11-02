@@ -1,13 +1,16 @@
-import NightScene from "@/components/NightScene";
+import CityScene from "@/components/city/CityScene";
+import CopyEmail from "@/components/CopyEmail";
+import Interactions from "@/components/Interactions";
 import ProjectPlate from "@/components/ProjectPlate";
-import { profile, projects } from "@/data/site";
+import { profile, projects, toolkit } from "@/data/site";
 
 const NUMERALS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
 
 const nav = [
-  { numeral: "II", label: "About", href: "#about" },
+  { numeral: "II", label: "Story", href: "#story" },
   { numeral: "III", label: "Work", href: "#work" },
-  { numeral: "IV", label: "Contact", href: "#contact" },
+  { numeral: "IV", label: "Toolkit", href: "#toolkit" },
+  { numeral: "V", label: "Contact", href: "#contact" },
 ];
 
 function External({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) {
@@ -32,52 +35,58 @@ function Eyebrow({ numeral, children }: { numeral: string; children: React.React
 export default function Home() {
   return (
     <>
+      <Interactions />
       <a href="#main" className="skip-link">
         Skip to content
       </a>
 
-      <header className="hero" id="top">
-        <NightScene />
-
-        <nav className="topbar" aria-label="Primary">
-          <a href="#top" className="brand">
-            <span className="brand__moon" aria-hidden="true" />
-            {profile.name}
-          </a>
-          <ul className="topbar__links">
-            {nav.map((item) => (
-              <li key={item.href}>
-                <a href={item.href}>
-                  <span className="topbar__numeral" aria-hidden="true">
-                    {item.numeral}
-                  </span>
-                  {item.label}
-                </a>
-              </li>
-            ))}
-            <li>
-              <External href={profile.github}>
-                GitHub <span aria-hidden="true">↗</span>
-              </External>
+      <nav className="topbar" aria-label="Primary">
+        <a href="#top" className="brand">
+          <span className="brand__ring" aria-hidden="true" />
+          {profile.name}
+        </a>
+        <ul className="topbar__links">
+          {nav.map((item) => (
+            <li key={item.href}>
+              <a href={item.href}>
+                <span className="topbar__numeral" aria-hidden="true">
+                  {item.numeral}
+                </span>
+                {item.label}
+              </a>
             </li>
-          </ul>
-        </nav>
+          ))}
+          <li className="topbar__external">
+            <External href={profile.github}>
+              GitHub <span aria-hidden="true">↗</span>
+            </External>
+          </li>
+        </ul>
+      </nav>
+
+      <header className="hero" id="top">
+        <CityScene />
 
         <div className="hero__intro">
-          <p className="hero__greeting">good evening, my name is</p>
+          <p className="hero__greeting rise" style={{ "--d": "0.5s" } as React.CSSProperties}>
+            hi, my name is
+          </p>
           <h1 className="hero__name">
-            {profile.firstName}
-            <br />
-            {profile.lastName}
+            <span className="rise" style={{ "--d": "0.65s" } as React.CSSProperties}>
+              {profile.firstName}
+            </span>
+            <span className="rise" style={{ "--d": "0.8s" } as React.CSSProperties}>
+              {profile.lastName}
+            </span>
           </h1>
-          <p className="hero__tagline">
+          <p className="hero__tagline rise" style={{ "--d": "1s" } as React.CSSProperties}>
             A <em>developer</em> drawn to <em>security</em> and <em>AI</em>.
           </p>
-          <p className="hero__summary">
+          <p className="hero__summary rise" style={{ "--d": "1.1s" } as React.CSSProperties}>
             {profile.role}. Building trustworthy systems that protect people, and experimenting with tooling
             that helps teams ship.
           </p>
-          <ul className="hero__links">
+          <ul className="hero__links rise" style={{ "--d": "1.2s" } as React.CSSProperties}>
             <li>
               <a href="#work">
                 Explore my work <span aria-hidden="true">↓</span>
@@ -97,16 +106,16 @@ export default function Home() {
         </div>
 
         <p className="hero__caption" aria-hidden="true">
-          Plate I <span className="eyebrow__rule" /> The city at night
+          Plate I <span className="eyebrow__rule" /> The skyline
         </p>
       </header>
 
       <main id="main" tabIndex={-1}>
-        <section id="about" className="section" aria-labelledby="about-heading">
-          <Eyebrow numeral="II">About</Eyebrow>
-          <div className="about">
+        <section id="story" className="section" aria-labelledby="story-heading">
+          <Eyebrow numeral="II">Story</Eyebrow>
+          <div className="story" data-reveal>
             <div>
-              <h2 id="about-heading" className="display">
+              <h2 id="story-heading" className="display">
                 Working the <em>night shift</em> on good software.
               </h2>
               <p className="lede">
@@ -129,18 +138,15 @@ export default function Home() {
                 <dd>{profile.role}</dd>
               </div>
               <div>
-                <dt>Toolkit</dt>
-                <dd>
-                  <ul className="chips">
-                    {profile.skills.map((skill) => (
-                      <li key={skill}>{skill}</li>
-                    ))}
-                  </ul>
-                </dd>
-              </div>
-              <div>
                 <dt>Focus</dt>
                 <dd>{profile.focus.join(" · ")}</dd>
+              </div>
+              <div>
+                <dt>Elsewhere</dt>
+                <dd className="dossier__links">
+                  <External href={profile.github}>GitHub</External>
+                  <External href={profile.linkedin}>LinkedIn</External>
+                </dd>
               </div>
             </dl>
           </div>
@@ -148,14 +154,16 @@ export default function Home() {
 
         <section id="work" className="section" aria-labelledby="work-heading">
           <Eyebrow numeral="III">Work</Eyebrow>
-          <h2 id="work-heading" className="display">
-            Selected <em>work</em>.
-          </h2>
-          <p className="lede">Concepts and works in progress. Full write-ups are on the way.</p>
+          <div data-reveal>
+            <h2 id="work-heading" className="display">
+              Selected <em>work</em>.
+            </h2>
+            <p className="lede">Concepts and works in progress. Full write-ups are on the way.</p>
+          </div>
 
           <ul className="projects">
             {projects.map((project, i) => (
-              <li key={project.title}>
+              <li key={project.title} data-reveal style={{ "--d": `${(i % 3) * 0.08}s` } as React.CSSProperties}>
                 <article className="project">
                   <ProjectPlate seed={i + 1} sky={project.sky} numeral={NUMERALS[i] ?? String(i + 1)} />
                   <div className="project__body">
@@ -187,27 +195,51 @@ export default function Home() {
           </ul>
         </section>
 
-        <section id="contact" className="section section--contact" aria-labelledby="contact-heading">
-          <Eyebrow numeral="IV">Contact</Eyebrow>
-          <h2 id="contact-heading" className="display display--xl">
-            Say <em>hello</em>.
+        <section id="toolkit" className="section" aria-labelledby="toolkit-heading">
+          <Eyebrow numeral="IV">Toolkit</Eyebrow>
+          <h2 id="toolkit-heading" className="display" data-reveal>
+            What I <em>build with</em>.
           </h2>
-          <p className="lede">Questions, collaborations, or just to talk shop: my inbox is open.</p>
-          <a className="contact__email" href={`mailto:${profile.email}`}>
-            {profile.email}
-          </a>
-          <ul className="hero__links contact__links">
-            <li>
-              <External href={profile.linkedin}>
-                LinkedIn <span aria-hidden="true">↗</span>
-              </External>
-            </li>
-            <li>
-              <External href={profile.github}>
-                GitHub <span aria-hidden="true">↗</span>
-              </External>
-            </li>
-          </ul>
+          <div className="toolkit">
+            {toolkit.map((group, i) => (
+              <div key={group.title} className="toolkit__group" data-reveal style={{ "--d": `${i * 0.1}s` } as React.CSSProperties}>
+                <h3 className="toolkit__title">{group.title}</h3>
+                <ul className="toolkit__items">
+                  {group.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section id="contact" className="section section--contact" aria-labelledby="contact-heading">
+          <Eyebrow numeral="V">Contact</Eyebrow>
+          <div data-reveal>
+            <h2 id="contact-heading" className="display display--xl">
+              Say <em>hello</em>.
+            </h2>
+            <p className="lede">Questions, collaborations, or just to talk shop: my inbox is open.</p>
+            <div className="contact__row">
+              <a className="contact__email" href={`mailto:${profile.email}`}>
+                {profile.email}
+              </a>
+              <CopyEmail email={profile.email} />
+            </div>
+            <ul className="hero__links contact__links">
+              <li>
+                <External href={profile.linkedin}>
+                  LinkedIn <span aria-hidden="true">↗</span>
+                </External>
+              </li>
+              <li>
+                <External href={profile.github}>
+                  GitHub <span aria-hidden="true">↗</span>
+                </External>
+              </li>
+            </ul>
+          </div>
         </section>
       </main>
 
@@ -215,7 +247,7 @@ export default function Home() {
         <p>
           © {new Date().getFullYear()} {profile.name}
         </p>
-        <p>Drawn by moonlight</p>
+        <a href="#top">Back to the skyline ↑</a>
       </footer>
     </>
   );
