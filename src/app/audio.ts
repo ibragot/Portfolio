@@ -312,6 +312,45 @@ class AudioEngine {
     osc.stop(t + 0.1);
   }
 
+  /** Impact: a low thump over a noisy crack, for spells, kicks and trades. */
+  hit(big = false) {
+    if (!this.ready()) return;
+    const ctx = this.ctx!;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(big ? 190 : 260, t);
+    osc.frequency.exponentialRampToValueAtTime(big ? 38 : 70, t + (big ? 0.4 : 0.22));
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(big ? 0.9 : 0.6, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + (big ? 0.55 : 0.28));
+    osc.connect(g).connect(this.sfxBus);
+    osc.start(t);
+    osc.stop(t + 0.6);
+    this.whoosh(big ? 0.45 : 0.16, big ? 0.55 : 0.28);
+  }
+
+  /** Rank up: a quick rising arpeggio, like a Social Link levelling up. */
+  rankUp() {
+    if (!this.ready()) return;
+    const ctx = this.ctx!;
+    const t = ctx.currentTime;
+    [660, 830, 990, 1320].forEach((f, i) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = f;
+      const s = t + i * 0.07;
+      g.gain.setValueAtTime(0.0001, s);
+      g.gain.exponentialRampToValueAtTime(0.4, s + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, s + (i === 3 ? 0.6 : 0.2));
+      osc.connect(g).connect(this.sfxBus);
+      osc.start(s);
+      osc.stop(s + 0.65);
+    });
+  }
+
   private whoosh(duration: number, level: number) {
     const ctx = this.ctx!;
     const t = ctx.currentTime;
