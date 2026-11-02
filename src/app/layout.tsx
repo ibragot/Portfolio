@@ -1,47 +1,48 @@
-import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
+// One variable family: condensed + heavy + italic for the menu, normal width for reading.
+// Self-hosted (SIL Open Font License), so builds never depend on Google Fonts being reachable.
+const archivo = localFont({
+  variable: "--font-archivo",
+  display: "swap",
+  src: [
+    { path: "../fonts/archivo-latin-wdth-normal.woff2", style: "normal", weight: "100 900" },
+    { path: "../fonts/archivo-latin-wdth-italic.woff2", style: "italic", weight: "100 900" },
+  ],
+  declarations: [{ prop: "font-stretch", value: "62% 125%" }],
 });
 
-const jetBrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains",
-  subsets: ["latin"],
+// Pixel face for the Walkman's display.
+const pixel = localFont({
+  variable: "--font-pixel",
+  display: "swap",
+  src: "../fonts/vt323-latin-400-normal.woff2",
 });
+
+const description =
+  "Noureldin Ibrahim, Computer Science at uOttawa. Full-stack apps, machine learning, and Roblox games.";
 
 export const metadata: Metadata = {
-  title: "Noureldin Ibrahim | Portfolio",
-  description:
-    "Noureldin Ibrahim · Computer Science student at UOttawa building thoughtful software projects.",
-  metadataBase: new URL("https://ibragot.github.io"),
+  title: "Noureldin Ibrahim",
+  description,
+  metadataBase: new URL("https://noureldin.dev"),
   openGraph: {
-    title: "Noureldin Ibrahim | Portfolio",
-    description:
-      "Placeholder portfolio highlighting Noureldin Ibrahim's projects, experience, and contact details.",
-    url: "https://www.noureldin.dev",
-    siteName: "Noureldin Ibrahim Portfolio",
+    title: "Noureldin Ibrahim",
+    description,
+    url: "https://noureldin.dev",
+    siteName: "Noureldin Ibrahim",
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "Noureldin Ibrahim | Portfolio",
-    description:
-      "Computer Science student at UOttawa building thoughtful digital products.",
-  },
+  twitter: { card: "summary_large_image", title: "Noureldin Ibrahim", description },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export const viewport: Viewport = { themeColor: "#0a1fa8" };
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} ${jetBrainsMono.variable}`}>
-        {children}
-      </body>
+    <html lang="en" className={`${archivo.variable} ${pixel.variable}`}>
+      <body>{children}</body>
     </html>
   );
 }
