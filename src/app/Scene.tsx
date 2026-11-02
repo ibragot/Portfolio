@@ -12,11 +12,13 @@ export default function Scene({
   className,
   label,
   interactive = true,
+  actEvent,
 }: {
   factory: SceneFactory;
   className?: string;
   label?: string;
   interactive?: boolean;
+  actEvent?: string; // a window event name that triggers the scene's act()
 }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
 
@@ -59,7 +61,7 @@ export default function Scene({
     const frame = (now: number) => {
       raf = 0;
       if (!scene) return;
-      state.dt = Math.min(64, now - last);
+      state.dt = Math.max(0, Math.min(64, now - last));
       last = now;
       state.t = now - start;
       readProgress();
@@ -122,6 +124,12 @@ export default function Scene({
       if (still) kick();
     };
 
+    const onAct = () => {
+      scene?.act?.(state);
+      last = performance.now();
+      kick();
+    };
+    if (actEvent) window.addEventListener(actEvent, onAct);
     if (interactive) {
       window.addEventListener("pointermove", onMove, { passive: true });
       window.addEventListener("click", onClick);
@@ -138,8 +146,9 @@ export default function Scene({
       window.removeEventListener("click", onClick);
       window.removeEventListener("resize", onResize);
       window.removeEventListener("scroll", onScroll);
+      if (actEvent) window.removeEventListener(actEvent, onAct);
     };
-  }, [factory, interactive]);
+  }, [factory, interactive, actEvent]);
 
   return <canvas ref={ref} className={className} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true} />;
 }
