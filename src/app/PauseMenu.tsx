@@ -6,17 +6,11 @@ import Bubbles, { burst } from "./Bubbles";
 import HeroModel from "./HeroModel";
 import OceanCanvas from "./OceanCanvas";
 import Walkman from "./Walkman";
-import {
-  activities,
-  education,
-  experience,
-  profile,
-  projects,
-  skills,
-  type Project,
-} from "./content";
+import { GAMES } from "./Hobbies";
+import { DuelStage, LibraryStage, RecommenderStage, TilawahStage } from "./Stages";
+import { education, hobbies, profile, projects, skills, type Project } from "./content";
 
-type SectionId = "profile" | "projects" | "experience" | "skills" | "activities" | "contact";
+type SectionId = "profile" | "projects" | "skills" | "activities" | "contact";
 type View = "main" | SectionId;
 
 // Each entry has its own size, indent and tilt so the list staggers like the game menu.
@@ -40,15 +34,6 @@ const MENU: {
     hint: "Things I built",
     ask: "Which project do you want to see?",
   },
-  {
-    id: "experience",
-    label: "Experience",
-    size: 1.05,
-    indent: 1.4,
-    tilt: -0.5,
-    hint: "Where I work",
-    ask: "Where has he worked?",
-  },
   { id: "skills", label: "Skills", size: 0.95, indent: 2.6, tilt: 2, hint: "What I use", ask: "What does he build with?" },
   {
     id: "activities",
@@ -56,8 +41,8 @@ const MENU: {
     size: 1.0,
     indent: 1.0,
     tilt: -1,
-    hint: "Community work",
-    ask: "What else does he do?",
+    hint: "Life outside code",
+    ask: "What does he do for fun?",
   },
   { id: "contact", label: "Contact", size: 1.1, indent: 2.0, tilt: 0.5, hint: "Say hello", ask: "How do you want to reach him?" },
 ];
@@ -78,6 +63,30 @@ export default function PauseMenu() {
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const subRef = useRef<HTMLElement | null>(null);
   const busy = useRef(false);
+  // Selections inside submenus, kept here so the side panel and the column stay in sync
+  const [proj, setProj] = useState(0);
+  const [hobby, setHobby] = useState(0);
+  const [ranks, setRanks] = useState<Record<string, number>>({});
+  const [rankUp, setRankUp] = useState<{ id: string; rank: number; n: number } | null>(null);
+  const [skill, setSkill] = useState<string | null>(null);
+
+  const scoreHobby = useCallback(
+    (id: string) => {
+      const cur = ranks[id] ?? 1;
+      if (cur >= 5) return;
+      setRanks((r) => ({ ...r, [id]: cur + 1 }));
+      setRankUp({ id, rank: cur + 1, n: Date.now() });
+    },
+    [ranks],
+  );
+  const pickProj = useCallback((i: number) => {
+    setProj(i);
+    audio.blip(i + 1);
+  }, []);
+  const pickHobby = useCallback((i: number) => {
+    setHobby(i);
+    audio.blip(i);
+  }, []);
 
   const inSub = view !== "main";
   const hovered = MENU.find((m) => m.id === cursor)!;
@@ -269,9 +278,6 @@ export default function PauseMenu() {
         </div>
       )}
 
-      {/* In a submenu, the section's arcana card takes the avatar's place */}
-      {section && <Arcana id={section.id} key={`a-${section.id}`} />}
-
       {/* The illustrated character, on the main menu only */}
       <div className="hero" data-pose={view} aria-hidden="true">
         <div className="hero-float">
@@ -359,6 +365,17 @@ export default function PauseMenu() {
             ))}
           </nav>
 
+          <Side
+            key={`side-${section.id}`}
+            id={section.id}
+            proj={proj}
+            pickProj={pickProj}
+            hobby={hobby}
+            pickHobby={pickHobby}
+            ranks={ranks}
+            skill={skill}
+          />
+
           <div className="sub-col">
             <div className="cutin" key={`cut-${cut}`} aria-hidden="true" />
             <header className="sub-tabs">
@@ -384,10 +401,17 @@ export default function PauseMenu() {
             <div className="sub-scroll">
               <div className="sub-body" key={`b-${section.id}-${cut}`}>
                 {section.id === "profile" && <ProfilePanel />}
-                {section.id === "projects" && <ProjectsPanel />}
-                {section.id === "experience" && <ExperiencePanel />}
-                {section.id === "skills" && <SkillsPanel />}
-                {section.id === "activities" && <ActivitiesPanel />}
+                {section.id === "projects" && <ProjectsPanel proj={proj} pickProj={pickProj} />}
+                {section.id === "skills" && <SkillsPanel skill={skill} setSkill={setSkill} />}
+                {section.id === "activities" && (
+                  <ActivitiesPanel
+                    hobby={hobby}
+                    pickHobby={pickHobby}
+                    ranks={ranks}
+                    rankUp={rankUp}
+                    onScore={scoreHobby}
+                  />
+                )}
                 {section.id === "contact" && <ContactPanel />}
               </div>
             </div>
@@ -433,137 +457,6 @@ export default function PauseMenu() {
         />
       )}
     </main>
-  );
-}
-
-/* ---------- Arcana cards: one original tarot-style card per section ---------- */
-
-const ARCANA: Record<SectionId, { num: string; name: string; line: string; art: React.ReactNode }> = {
-  profile: {
-    num: "0",
-    name: "The Fool",
-    line: "Every journey starts with one step.",
-    art: (
-      <>
-        <circle cx="100" cy="74" r="22" pathLength={1} />
-        {Array.from({ length: 12 }, (_, i) => {
-          const a = (i / 12) * Math.PI * 2;
-          return <line key={i} x1={100 + Math.cos(a) * 30} y1={74 + Math.sin(a) * 30} x2={100 + Math.cos(a) * 40} y2={74 + Math.sin(a) * 40} pathLength={1} />;
-        })}
-        <path d="M24 214 L118 214 L150 246" pathLength={1} />
-        <circle cx="108" cy="168" r="6" pathLength={1} />
-        <path d="M108 174 L106 196 M106 196 L98 212 M106 196 L114 212 M107 182 L94 176 M107 182 L122 172 L132 160" pathLength={1} />
-        <circle cx="134" cy="156" r="5" className="fill" />
-      </>
-    ),
-  },
-  projects: {
-    num: "I",
-    name: "The Magician",
-    line: "Making something out of nothing.",
-    art: (
-      <>
-        <path d="M100 62 C 86 44, 62 44, 62 62 C 62 80, 86 80, 100 62 C 114 44, 138 44, 138 62 C 138 80, 114 80, 100 62 Z" pathLength={1} />
-        <line x1="100" y1="96" x2="100" y2="186" pathLength={1} />
-        <circle cx="100" cy="92" r="5" className="fill" />
-        <circle cx="100" cy="190" r="4" pathLength={1} />
-        <line x1="30" y1="212" x2="170" y2="212" pathLength={1} />
-        <path d="M44 212 L40 194 L60 194 L56 212" pathLength={1} />
-        <path d="M80 212 L80 186 M74 192 L86 192" pathLength={1} />
-        <circle cx="124" cy="200" r="11" pathLength={1} />
-        <path d="M124 191 L128 204 L116 196 L132 196 L120 204 Z" pathLength={1} />
-        <path d="M150 212 L150 194 L162 194 L162 212" pathLength={1} />
-      </>
-    ),
-  },
-  experience: {
-    num: "VII",
-    name: "The Chariot",
-    line: "Moving forward, as a team.",
-    art: (
-      <>
-        <path d="M100 42 L106 60 L125 60 L110 71 L116 89 L100 78 L84 89 L90 71 L75 60 L94 60 Z" pathLength={1} />
-        <circle cx="100" cy="158" r="50" pathLength={1} />
-        <circle cx="100" cy="158" r="8" className="fill" />
-        {Array.from({ length: 8 }, (_, i) => {
-          const a = (i / 8) * Math.PI * 2;
-          return <line key={i} x1={100 + Math.cos(a) * 12} y1={158 + Math.sin(a) * 12} x2={100 + Math.cos(a) * 48} y2={158 + Math.sin(a) * 48} pathLength={1} />;
-        })}
-        <path d="M30 222 L170 222 M44 232 L156 232" pathLength={1} />
-      </>
-    ),
-  },
-  skills: {
-    num: "IX",
-    name: "The Hermit",
-    line: "The tools I carry with me.",
-    art: (
-      <>
-        <path d="M100 52 L100 70" pathLength={1} />
-        <path d="M84 70 L116 70 L124 86 L124 140 L116 156 L84 156 L76 140 L76 86 Z" pathLength={1} />
-        <path d="M100 92 L105 108 L121 108 L108 118 L113 134 L100 124 L87 134 L92 118 L79 108 L95 108 Z" className="fill" />
-        <path d="M60 230 L132 64" pathLength={1} />
-        {[0, 1, 2, 3, 4, 5].map((i) => {
-          const a = Math.PI * (0.05 + i * 0.18);
-          return <line key={i} x1={100 + Math.cos(a) * 44} y1={113 + Math.sin(a) * 44 - 40} x2={100 + Math.cos(a) * 62} y2={113 + Math.sin(a) * 62 - 40} pathLength={1} />;
-        })}
-      </>
-    ),
-  },
-  activities: {
-    num: "XIV",
-    name: "Temperance",
-    line: "Giving back to the community.",
-    art: (
-      <>
-        <path d="M100 40 L124 80 L76 80 Z" pathLength={1} />
-        <path d="M44 104 L52 140 L76 140 L84 104 Z" pathLength={1} />
-        <path d="M116 156 L124 192 L148 192 L156 156 Z" pathLength={1} />
-        <path d="M80 108 C 110 100, 128 120, 132 152" className="stream" pathLength={1} />
-        <path d="M28 214 Q 64 204 100 214 T 172 214 M28 230 Q 64 220 100 230 T 172 230" pathLength={1} />
-      </>
-    ),
-  },
-  contact: {
-    num: "XVII",
-    name: "The Star",
-    line: "Let's build the next thing.",
-    art: (
-      <>
-        <path d="M100 52 L110 92 L150 102 L110 112 L100 152 L90 112 L50 102 L90 92 Z" pathLength={1} />
-        <path d="M100 70 L104 98 L132 102 L104 106 L100 134 L96 106 L68 102 L96 98 Z" className="fill" />
-        {[
-          [44, 50],
-          [158, 56],
-          [36, 150],
-          [164, 148],
-          [70, 176],
-          [134, 180],
-        ].map(([x, y], i) => (
-          <path key={i} d={`M${x} ${y - 7} L${x + 2} ${y - 2} L${x + 7} ${y} L${x + 2} ${y + 2} L${x} ${y + 7} L${x - 2} ${y + 2} L${x - 7} ${y} L${x - 2} ${y - 2} Z`} className="fill" />
-        ))}
-        <path d="M28 214 Q 64 204 100 214 T 172 214 M28 230 Q 64 220 100 230 T 172 230" pathLength={1} />
-      </>
-    ),
-  },
-};
-
-function Arcana({ id }: { id: SectionId }) {
-  const a = ARCANA[id];
-  return (
-    <div className="arcana" aria-hidden="true">
-      <div className="arcana-tilt">
-        <div className="arcana-card">
-          <span className="arcana-num">{a.num}</span>
-          <svg className="arcana-art" viewBox="0 0 200 260">
-            {a.art}
-          </svg>
-          <span className="arcana-name">{a.name}</span>
-          <span className="arcana-shine" />
-        </div>
-      </div>
-      <p className="arcana-line">{a.line}</p>
-    </div>
   );
 }
 
@@ -688,37 +581,258 @@ function ProfilePanel() {
   );
 }
 
-function ProjectsPanel() {
+/* ---------- Side panel: fills the space on the left of every submenu ---------- */
+
+// Which skills each piece of work uses, so picking a skill lights up where it shows up.
+const USES: { id: string; title: string; skills: string[] }[] = [
+  {
+    id: "recommender",
+    title: "AI Movie Recommender",
+    skills: ["Python", "SQL", "React", "FastAPI", "PyTorch", "PostgreSQL", "REST APIs", "Docker", "GitHub Actions", "Railway", "Vercel", "Hugging Face Hub", "Unit testing", "System design"],
+  },
+  {
+    id: "tilawah",
+    title: "Tilawah",
+    skills: ["TypeScript", "React", "Express", "REST APIs", "OAuth2", "Azure Cognitive Services", "Gemini API", "Groq SDK"],
+  },
+  { id: "msa-library", title: "MSA Library System", skills: ["TypeScript", "React", "Supabase", "SQL", "Agile", "Unit testing"] },
+  { id: "wizard-duel", title: "Wizard Duel", skills: ["Luau", "OOP", "System design"] },
+  { id: "site", title: "This website", skills: ["TypeScript", "React", "Next.js", "Vercel", "Bash"] },
+  { id: "school", title: "uOttawa coursework", skills: ["Java", "Python", "OOP", "SQL", "Bash"] },
+];
+
+const STATS = [
+  { k: "Code", lv: 5, title: "Genius", why: "Full-stack apps, machine learning models and Roblox games." },
+  { k: "Creativity", lv: 4, title: "Visionary", why: "Designs his own games, and this pause menu." },
+  { k: "Courage", lv: 4, title: "Daring", why: "Rock climbing, hackathons, and shipping before it feels ready." },
+  { k: "Teamwork", lv: 5, title: "Captain", why: "An 8-developer Agile team, soccer, and events for 100+ people." },
+  { k: "Charm", lv: 4, title: "Stylish", why: "Fashion is a hobby. The fits are on purpose." },
+];
+
+function Side({
+  id,
+  proj,
+  pickProj,
+  hobby,
+  pickHobby,
+  ranks,
+  skill,
+}: {
+  id: SectionId;
+  proj: number;
+  pickProj: (i: number) => void;
+  hobby: number;
+  pickHobby: (i: number) => void;
+  ranks: Record<string, number>;
+  skill: string | null;
+}) {
   return (
-    <div className="stack">
+    <aside className="side" data-kind={id}>
+      {id === "profile" && <StatsRadar />}
+      {id === "projects" && (
+        <>
+          <p className="side-kicker">Select a project</p>
+          <ProjectPicker proj={proj} pickProj={pickProj} />
+        </>
+      )}
+      {id === "activities" && (
+        <>
+          <p className="side-kicker">Social links</p>
+          <HobbyPicker hobby={hobby} pickHobby={pickHobby} ranks={ranks} />
+        </>
+      )}
+      {id === "skills" && (
+        <>
+          <p className="side-kicker">{skill ? `Where ${skill} shows up` : "Pick a skill to see where it shows up"}</p>
+          <ul className="uses">
+            {USES.map((u, i) => {
+              const on = !!skill && u.skills.includes(skill);
+              return (
+                <li key={u.id} data-on={on} data-dim={!!skill && !on} style={{ "--i": i } as React.CSSProperties}>
+                  {u.title}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+      {id === "contact" && <Invite />}
+    </aside>
+  );
+}
+
+function ProjectPicker({ proj, pickProj, inline }: { proj: number; pickProj: (i: number) => void; inline?: boolean }) {
+  return (
+    <div className={inline ? "picker picker-inline" : "picker"} role="tablist" aria-label="Projects">
       {projects.map((p, i) => (
-        <ProjectEntry key={p.id} p={p} i={i} />
+        <button
+          key={p.id}
+          role="tab"
+          aria-selected={i === proj}
+          className="pick"
+          data-on={i === proj}
+          style={{ "--i": i } as React.CSSProperties}
+          onClick={() => pickProj(i)}
+        >
+          <span className="pick-num">{String(i + 1).padStart(2, "0")}</span>
+          <span className="pick-text">
+            <span className="pick-name">{p.title}</span>
+            <span className="pick-sub">{p.kind}</span>
+          </span>
+        </button>
       ))}
     </div>
   );
 }
 
-function ProjectEntry({ p, i }: { p: Project; i: number }) {
-  const [imgOk, setImgOk] = useState(Boolean(p.image));
+function HobbyPicker({
+  hobby,
+  pickHobby,
+  ranks,
+  inline,
+}: {
+  hobby: number;
+  pickHobby: (i: number) => void;
+  ranks: Record<string, number>;
+  inline?: boolean;
+}) {
   return (
-    <article className="entry" style={{ "--i": i } as React.CSSProperties}>
+    <div className={inline ? "picker picker-inline picker-hobby" : "picker picker-hobby"} role="tablist" aria-label="Hobbies">
+      {hobbies.map((h, i) => {
+        const r = ranks[h.id] ?? 1;
+        return (
+          <button
+            key={h.id}
+            role="tab"
+            aria-selected={i === hobby}
+            className="pick"
+            data-on={i === hobby}
+            style={{ "--i": i } as React.CSSProperties}
+            onClick={() => pickHobby(i)}
+          >
+            <span className="pick-text">
+              <span className="pick-name">{h.name}</span>
+              <span className="pick-pips" aria-label={`Rank ${r} of 5`}>
+                {[1, 2, 3, 4, 5].map((k) => (
+                  <i key={k} data-on={k <= r} />
+                ))}
+              </span>
+            </span>
+            <span className="pick-rank">{r === 5 ? "MAX" : `R${r}`}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function StatsRadar() {
+  const [hover, setHover] = useState(0);
+  const n = STATS.length;
+  const pt = (i: number, r: number) => {
+    const a = -Math.PI / 2 + (i / n) * Math.PI * 2;
+    return [100 + Math.cos(a) * r, 100 + Math.sin(a) * r] as const;
+  };
+  const ring = (r: number) => STATS.map((_, i) => pt(i, r).join(",")).join(" ");
+  const shape = STATS.map((s, i) => pt(i, (s.lv / 5) * 72).join(",")).join(" ");
+  const cur = STATS[hover];
+  return (
+    <div className="radar">
+      <p className="side-kicker">Social stats</p>
+      <svg viewBox="-20 -6 240 212" className="radar-svg" role="img" aria-label="Social stats chart">
+        {[1, 2, 3, 4, 5].map((k) => (
+          <polygon key={k} points={ring((k / 5) * 72)} className="radar-ring" />
+        ))}
+        {STATS.map((_, i) => {
+          const [x, y] = pt(i, 72);
+          return <line key={i} x1="100" y1="100" x2={x} y2={y} className="radar-spoke" />;
+        })}
+        <polygon points={shape} className="radar-shape" />
+        {STATS.map((s, i) => {
+          const [x, y] = pt(i, (s.lv / 5) * 72);
+          const [lx, ly] = pt(i, 92);
+          return (
+            <g key={s.k} className="radar-axis" data-on={i === hover} onPointerEnter={() => { setHover(i); audio.blip(i); }} onClick={() => setHover(i)}>
+              <circle cx={x} cy={y} r="4.5" className="radar-dot" />
+              <text x={lx} y={ly + 4} textAnchor="middle" className="radar-label">
+                {s.k}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <div className="radar-info" key={cur.k}>
+        <span className="radar-title">
+          {cur.k} <b>Lv {cur.lv}</b> <em>{cur.title}</em>
+        </span>
+        <span className="radar-why">{cur.why}</span>
+      </div>
+    </div>
+  );
+}
+
+function Invite() {
+  const [joined, setJoined] = useState(0);
+  const invite = async (e: React.MouseEvent) => {
+    burst(e.clientX, e.clientY, 28);
+    audio.rankUp();
+    setJoined(Date.now());
+    try {
+      await navigator.clipboard.writeText(profile.email);
+    } catch {
+      /* clipboard blocked: the email is still on screen */
+    }
+  };
+  return (
+    <div className="invite">
+      <p className="side-kicker">New party member?</p>
+      <button className="invite-btn" onClick={invite}>
+        <span>Invite to party</span>
+      </button>
+      <p className="invite-msg" key={joined} data-on={joined > 0} aria-live="polite">
+        {joined > 0 ? (
+          <>
+            <b>Noureldin joined your party!</b>
+            <span>His email is copied. Paste it anywhere.</span>
+          </>
+        ) : (
+          <span>One click copies his email.</span>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/* ---------- Section bodies ---------- */
+
+function ProjectsPanel({ proj, pickProj }: { proj: number; pickProj: (i: number) => void }) {
+  const p = projects[proj];
+  return (
+    <div className="stack">
+      <ProjectPicker proj={proj} pickProj={pickProj} inline />
+      <ProjectEntry key={p.id} p={p} />
+    </div>
+  );
+}
+
+function ProjectStage({ p }: { p: Project }) {
+  if (p.id === "recommender") return <RecommenderStage />;
+  if (p.id === "tilawah") return <TilawahStage />;
+  if (p.id === "msa-library") return <LibraryStage />;
+  if (p.id === "wizard-duel") return <DuelStage image={p.image} />;
+  return null;
+}
+
+function ProjectEntry({ p }: { p: Project }) {
+  return (
+    <article className="entry project">
       <div className="entry-bar">
         <h3>{p.title}</h3>
         <span>{p.date}</span>
       </div>
-      {p.image && imgOk && (
-        // Hosted on Roblox's CDN; hidden if it ever stops loading.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          className="entry-shot"
-          src={p.image}
-          alt={`${p.title} gameplay`}
-          loading="lazy"
-          onError={() => setImgOk(false)}
-        />
-      )}
       <p className="entry-kind">{p.kind}</p>
       <p className="entry-summary">{p.summary}</p>
+      <ProjectStage p={p} />
       <ul className="entry-points">
         {p.points.map((pt) => (
           <li key={pt}>{pt}</li>
@@ -729,74 +843,102 @@ function ProjectEntry({ p, i }: { p: Project; i: number }) {
           <li key={s}>{s}</li>
         ))}
       </ul>
-      <div className="entry-links">
-        {p.links.map((l) => (
-          <a key={l.href} href={l.href} target="_blank" rel="noreferrer" onClick={() => audio.confirm()}>
-            {l.label}
-          </a>
-        ))}
-      </div>
+      {p.links.length > 0 && (
+        <div className="entry-links">
+          {p.links.map((l) => (
+            <a key={l.href} href={l.href} target="_blank" rel="noreferrer" onClick={() => audio.confirm()}>
+              {l.label}
+            </a>
+          ))}
+        </div>
+      )}
     </article>
   );
 }
 
-function ExperiencePanel() {
-  return (
-    <div className="stack">
-      {experience.map((x, i) => (
-        <article className="entry" key={x.title + x.org} style={{ "--i": i } as React.CSSProperties}>
-          <div className="entry-bar">
-            <h3>{x.title}</h3>
-            <span>{x.date}</span>
-          </div>
-          <p className="entry-kind">
-            {x.org}, {x.where}
-          </p>
-          <ul className="entry-points">
-            {x.points.map((pt) => (
-              <li key={pt}>{pt}</li>
-            ))}
-          </ul>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function SkillsPanel() {
+function SkillsPanel({ skill, setSkill }: { skill: string | null; setSkill: (s: string | null) => void }) {
+  const where = skill ? USES.filter((u) => u.skills.includes(skill)).map((u) => u.title) : [];
   return (
     <div className="skills">
       {skills.map((g, i) => (
         <div className="skill-row entry" key={g.group} style={{ "--i": i } as React.CSSProperties}>
           <h3>{g.group}</h3>
-          <ul className="tags">
+          <ul className="tags tags-pick">
             {g.items.map((s) => (
-              <li key={s}>{s}</li>
+              <li key={s}>
+                <button
+                  data-on={s === skill}
+                  aria-pressed={s === skill}
+                  onClick={() => {
+                    setSkill(s === skill ? null : s);
+                    audio.blip(i);
+                  }}
+                >
+                  {s}
+                </button>
+              </li>
             ))}
           </ul>
         </div>
       ))}
+      <p className="skill-where" aria-live="polite">
+        {skill ? `${skill}: ${where.join(", ")}` : "Tap a skill to see where it shows up."}
+      </p>
     </div>
   );
 }
 
-function ActivitiesPanel() {
+function ActivitiesPanel({
+  hobby,
+  pickHobby,
+  ranks,
+  rankUp,
+  onScore,
+}: {
+  hobby: number;
+  pickHobby: (i: number) => void;
+  ranks: Record<string, number>;
+  rankUp: { id: string; rank: number; n: number } | null;
+  onScore: (id: string) => void;
+}) {
+  const h = hobbies[hobby];
+  const rank = ranks[h.id] ?? 1;
+  const Game = GAMES[h.id];
   return (
     <div className="stack">
-      {activities.map((a, i) => (
-        <article className="entry" key={a.title} style={{ "--i": i } as React.CSSProperties}>
-          <div className="entry-bar">
-            <h3>{a.org}</h3>
-            <span>{a.date}</span>
+      <HobbyPicker hobby={hobby} pickHobby={pickHobby} ranks={ranks} inline />
+      <article className="entry hobby" key={h.id}>
+        <div className="entry-bar">
+          <h3>{h.name}</h3>
+          <span>{rank === 5 ? "Rank MAX" : `Rank ${rank}`}</span>
+        </div>
+        <p className="entry-kind">{h.tag}</p>
+        <div className="stage">
+          <div className="stage-top">
+            <span className="stage-label">Play</span>
+            <span className="stage-hint">Win to rank up this social link</span>
           </div>
-          <p className="entry-kind">{a.title}</p>
-          <ul className="entry-points">
-            {a.points.map((pt) => (
-              <li key={pt}>{pt}</li>
-            ))}
-          </ul>
-        </article>
-      ))}
+          <div className="stage-body">
+            <Game onScore={() => onScore(h.id)} />
+          </div>
+          {rankUp && rankUp.id === h.id && (
+            <div className="rankup" key={rankUp.n} aria-live="polite">
+              <b>Rank up!</b>
+              <span>
+                {h.name} reached {rankUp.rank === 5 ? "MAX rank" : `rank ${rankUp.rank}`}
+              </span>
+            </div>
+          )}
+        </div>
+        <ol className="ranks">
+          {h.ranks.map((line, i) => (
+            <li key={i} data-open={i < rank} data-new={rankUp?.id === h.id && i === rank - 1}>
+              <span className="ranks-n">{i === 4 ? "MAX" : `R${i + 1}`}</span>
+              <span className="ranks-line">{i < rank ? line : "Locked. Win the game above to rank up."}</span>
+            </li>
+          ))}
+        </ol>
+      </article>
     </div>
   );
 }
