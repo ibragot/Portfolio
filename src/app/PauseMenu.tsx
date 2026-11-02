@@ -7,10 +7,13 @@ import HeroModel from "./HeroModel";
 import OceanCanvas from "./OceanCanvas";
 import Walkman from "./Walkman";
 import { GAMES } from "./Hobbies";
-import { DuelStage, LibraryStage, RecommenderStage, TilawahStage } from "./Stages";
+import { DuelStage } from "./Duel";
+import { LibraryStage } from "./Library";
+import { RecommenderStage } from "./Stages";
+import { TilawahStage } from "./Tilawah";
 import { education, hobbies, profile, projects, skills, type Project } from "./content";
 
-type SectionId = "profile" | "projects" | "skills" | "activities" | "contact";
+type SectionId = "profile" | "projects" | "skills" | "hobbies" | "contact";
 type View = "main" | SectionId;
 
 // Each entry has its own size, indent and tilt so the list staggers like the game menu.
@@ -36,8 +39,8 @@ const MENU: {
   },
   { id: "skills", label: "Skills", size: 0.95, indent: 2.6, tilt: 2, hint: "What I use", ask: "What does he build with?" },
   {
-    id: "activities",
-    label: "Activities",
+    id: "hobbies",
+    label: "Hobbies",
     size: 1.0,
     indent: 1.0,
     tilt: -1,
@@ -62,6 +65,7 @@ export default function PauseMenu() {
   const screenRef = useRef<HTMLElement | null>(null);
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const subRef = useRef<HTMLElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const busy = useRef(false);
   // Selections inside submenus, kept here so the side panel and the column stay in sync
   const [proj, setProj] = useState(0);
@@ -83,6 +87,10 @@ export default function PauseMenu() {
     setProj(i);
     audio.blip(i + 1);
   }, []);
+  // Start each section, project and hobby at the top instead of wherever the last one was scrolled to
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [view, proj, hobby]);
   const pickHobby = useCallback((i: number) => {
     setHobby(i);
     audio.blip(i);
@@ -398,12 +406,12 @@ export default function PauseMenu() {
                 <span aria-hidden="true">▶</span>
               </button>
             </header>
-            <div className="sub-scroll">
+            <div className="sub-scroll" ref={scrollRef}>
               <div className="sub-body" key={`b-${section.id}-${cut}`}>
                 {section.id === "profile" && <ProfilePanel />}
                 {section.id === "projects" && <ProjectsPanel proj={proj} pickProj={pickProj} />}
                 {section.id === "skills" && <SkillsPanel skill={skill} setSkill={setSkill} />}
-                {section.id === "activities" && (
+                {section.id === "hobbies" && (
                   <ActivitiesPanel
                     hobby={hobby}
                     pickHobby={pickHobby}
@@ -635,7 +643,7 @@ function Side({
           <ProjectPicker proj={proj} pickProj={pickProj} />
         </>
       )}
-      {id === "activities" && (
+      {id === "hobbies" && (
         <>
           <p className="side-kicker">Social links</p>
           <HobbyPicker hobby={hobby} pickHobby={pickHobby} ranks={ranks} />
