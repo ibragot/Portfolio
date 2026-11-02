@@ -10,6 +10,12 @@ export const profile = {
   focus: ["UX-friendly systems", "AI-assisted tooling", "Community impact"],
 };
 
+export const toolkit = [
+  { title: "Languages & frameworks", items: profile.skills },
+  { title: "Drawn to", items: ["Cyber security", "AI-assisted tooling", "UX-friendly systems"] },
+  { title: "Beyond code", items: ["Community impact", "Collaborative learning", "Shipping things people love"] },
+];
+
 export type Project = {
   title: string;
   description: string;
@@ -28,7 +34,7 @@ export const projects: Project[] = [
       "A data storytelling dashboard concept that highlights product KPIs with expressive visualizations and personalized insights for stakeholders.",
     skills: ["TypeScript", "Next.js", "Tailwind CSS", "tRPC"],
     source: profile.github,
-    sky: ["#16302a", "#8ea55c"],
+    sky: ["#16303a", "#5f9c9c"],
   },
   {
     title: "Pinnacle Project Tracker",
@@ -36,7 +42,7 @@ export const projects: Project[] = [
       "Placeholder tool for keeping class and side projects organized with lightweight sprints, status reporting, and teammate updates.",
     skills: ["React", "Prisma", "PostgreSQL", "GraphQL"],
     source: profile.github,
-    sky: ["#161f2c", "#6d86a6"],
+    sky: ["#1a2740", "#6d86a6"],
   },
   {
     title: "Nova Study Planner",
@@ -44,7 +50,7 @@ export const projects: Project[] = [
       "Responsive planner concept that syncs lectures, deliverables, and personal goals into one calm interface for busy semesters.",
     skills: ["TypeScript", "Expo", "Supabase", "Figma"],
     source: profile.github,
-    sky: ["#12262a", "#5fa3a0"],
+    sky: ["#123039", "#4f8f95"],
   },
   {
     title: "Orbit AI Assistant",
@@ -52,7 +58,7 @@ export const projects: Project[] = [
       "Exploration of an AI copiloted workspace that summarizes research, drafts documentation, and surfaces key decisions at a glance.",
     skills: ["Next.js", "OpenAI", "Redis", "Zustand"],
     source: profile.github,
-    sky: ["#241a26", "#a7766a"],
+    sky: ["#2a2140", "#b48a6a"],
   },
   {
     title: "Pulse Health Dashboard",
@@ -60,7 +66,7 @@ export const projects: Project[] = [
       "Healthcare-themed dashboard mockup that aggregates wearable data, predicts trends, and suggests next steps for providers.",
     skills: ["Python", "FastAPI", "TimescaleDB", "Plotly"],
     source: profile.github,
-    sky: ["#252114", "#c4a159"],
+    sky: ["#1d2a3a", "#d1a35e"],
   },
   {
     title: "Waypoint Travel Journal",
@@ -68,6 +74,6 @@ export const projects: Project[] = [
       "A minimalist travel log concept that geotags memories, curates photo sets, and shares itineraries with friends in real-time.",
     skills: ["Next.js", "PlanetScale", "Mapbox", "Cloudinary"],
     source: profile.github,
-    sky: ["#17271d", "#7fb08a"],
+    sky: ["#163236", "#7fb0a0"],
   },
 ];

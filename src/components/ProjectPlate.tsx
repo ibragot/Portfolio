@@ -39,10 +39,10 @@ export default function ProjectPlate({ seed, sky, numeral }: { seed: number; sky
       <rect width="400" height="200" fill={`url(#${id}-sky)`} />
       <circle cx={moonX} cy="62" r="70" fill={`url(#${id}-glow)`} />
       <circle cx={moonX} cy="62" r="26" fill="#eef1d8" />
-      <path d={back.body} fill="#000" opacity="0.35" />
+      <path d={back.body} fill="#1d3a46" opacity="0.55" />
       <path d={back.cool} fill="#e6f0cf" opacity="0.5" />
-      <path d={front.body} fill="#0b0e0d" />
-      <path d={front.warm} fill="#f2c46d" />
+      <path d={front.body} fill="#4a4770" />
+      <path d={front.warm} fill="#ffd36b" />
       <path d={front.cool} fill="#cfe8c4" opacity="0.8" />
       <text x="16" y="30" className="plate__numeral">
         {numeral}
