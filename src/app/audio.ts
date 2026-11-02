@@ -61,6 +61,29 @@ class AudioEngine {
     }
   }
 
+  /**
+   * Start the Walkman as the page opens. Browsers only let sound start after the visitor
+   * clicks, taps or presses a key, so the track is loaded and queued right away and
+   * begins the instant the first interaction happens.
+   */
+  autoplay() {
+    if (typeof window === "undefined" || this.playing) return;
+    void this.play();
+    const go = () => {
+      this.unlock();
+      if (this.ctx?.state === "running") {
+        events.forEach((e) => window.removeEventListener(e, go, true));
+      }
+    };
+    const events = ["pointerdown", "keydown", "touchend", "click"];
+    events.forEach((e) => window.addEventListener(e, go, true));
+  }
+
+  /** True while the browser is still holding sound back until the first interaction. */
+  get blocked() {
+    return !!this.ctx && this.ctx.state !== "running";
+  }
+
   /** Create or resume the context. Must run inside a user gesture. */
   unlock() {
     if (typeof window === "undefined") return;
@@ -74,8 +97,9 @@ class AudioEngine {
       this.sfxBus = this.ctx.createGain();
       this.sfxBus.gain.value = 0.35;
       this.sfxBus.connect(this.ctx.destination);
+      this.ctx.onstatechange = () => this.emit();
     }
-    if (this.ctx.state === "suspended") void this.ctx.resume();
+    if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
   }
 
   private load(track: Track) {

@@ -245,7 +245,7 @@ body {
   transform-origin: left center;
   display: flex;
   flex-direction: column;
-  --unit: clamp(2.2rem, 7.4vh, 4.6rem);
+  --unit: clamp(2.8rem, 10.2vh, 6.8rem);
 }
 
 .menu-item {
@@ -1003,11 +1003,11 @@ body {
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(47vw, 700px);
+  width: min(64vw, 1120px);
   display: flex;
   flex-direction: column;
-  padding: clamp(16px, 4vh, 40px) clamp(20px, 2.6vw, 40px) 0 clamp(40px, 5vw, 80px);
-  background: linear-gradient(90deg, transparent 0%, rgb(4 10 80 / 0.5) 16%, rgb(4 10 80 / 0.8) 100%);
+  padding: clamp(16px, 4vh, 40px) clamp(24px, 3.4vw, 64px) 0 clamp(48px, 6vw, 110px);
+  background: linear-gradient(90deg, transparent 0%, rgb(4 10 80 / 0.55) 12%, rgb(4 10 80 / 0.84) 100%);
   overflow: hidden;
   animation: colIn 560ms var(--ease-out) 120ms both;
 }
@@ -1041,7 +1041,7 @@ body {
   font-style: italic;
   font-weight: 900;
   font-stretch: 78%;
-  font-size: clamp(2rem, 4.2vw, 3.3rem);
+  font-size: clamp(2.6rem, 5vw, 4.6rem);
   line-height: 0.9;
   text-transform: uppercase;
   letter-spacing: -0.02em;
@@ -1114,7 +1114,7 @@ body {
 }
 
 .sub-body {
-  max-width: 60ch;
+  max-width: 70ch;
 }
 
 /* White band with a red edge that sweeps across the column whenever the section changes */
@@ -1535,6 +1535,252 @@ body {
   from { opacity: 0; transform: translateX(16px); }
 }
 
+/* ---------- Bigger submenu content: the info fills the column ---------- */
+
+.sub-body {
+  font-size: clamp(1.05rem, 1.15vw, 1.25rem);
+}
+.sub-body .stack {
+  gap: 2.8rem;
+}
+.sub-body .lead {
+  font-size: clamp(1.3rem, 1.6vw, 1.75rem);
+  line-height: 1.5;
+}
+.sub-body .entry {
+  gap: 0.95rem;
+}
+.sub-body .entry-bar {
+  padding: 0.5rem 1.6rem 0.55rem 1.1rem;
+}
+.sub-body .entry-bar h3 {
+  font-size: clamp(2rem, 2.8vw, 2.9rem);
+}
+.sub-body .entry-bar span {
+  font-size: clamp(0.9rem, 1vw, 1.1rem);
+}
+.sub-body .entry-kind {
+  font-size: clamp(1.02rem, 1.15vw, 1.25rem);
+}
+.sub-body .entry-summary {
+  font-size: clamp(1.15rem, 1.35vw, 1.45rem);
+  line-height: 1.55;
+}
+.sub-body .entry-points {
+  gap: 0.6rem;
+  font-size: clamp(1.05rem, 1.2vw, 1.3rem);
+}
+.sub-body .tags {
+  gap: 0.5rem;
+}
+.sub-body .tags li {
+  font-size: clamp(0.88rem, 0.95vw, 1.05rem);
+  padding: 0.3rem 0.85rem;
+}
+.sub-body .entry-links a,
+.sub-body .contact-list a {
+  font-size: clamp(1.2rem, 1.4vw, 1.5rem);
+}
+.sub-body .stats {
+  gap: 1.6rem 3rem;
+}
+.sub-body .stats dt {
+  font-size: clamp(0.9rem, 1vw, 1.1rem);
+}
+.sub-body .stats dd {
+  font-size: clamp(1.15rem, 1.35vw, 1.5rem);
+}
+.sub-body .skills {
+  gap: 1.9rem;
+}
+.sub-body .skill-row h3 {
+  font-size: clamp(1.3rem, 1.6vw, 1.75rem);
+  margin-bottom: 0.7rem;
+}
+.sub-body .email-address {
+  font-size: clamp(1.6rem, 2.6vw, 2.5rem);
+}
+.sub-body .email-copy {
+  font-size: 1.05rem;
+  padding: 0.5rem 1.3rem;
+}
+.sub-body .contact-value {
+  font-size: clamp(1.4rem, 1.9vw, 1.9rem);
+}
+.sub-body .entry-shot {
+  max-width: 760px;
+}
+
+/* ---------- Arcana card: replaces the avatar in submenus ---------- */
+
+.screen[data-view="sub"] .hero {
+  opacity: 0;
+  transform: translate(-30vw, 50vh) rotate(-20deg) scale(0.8);
+  transition: transform 600ms var(--ease-out), opacity 300ms linear;
+}
+
+.arcana {
+  --ch: clamp(260px, calc(92vh - 380px), 540px);
+  position: absolute;
+  z-index: 3;
+  left: clamp(40px, 8vw, 150px);
+  top: 13vh;
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  perspective: 1100px;
+  pointer-events: none;
+  animation: arcanaIn 820ms var(--spring) 120ms both;
+}
+
+.arcana-tilt {
+  transform-style: preserve-3d;
+  transform: rotateY(calc(var(--px) * 22deg)) rotateX(calc(var(--py) * -16deg));
+  animation: arcanaFloat 6s ease-in-out infinite;
+}
+
+.arcana-card {
+  position: relative;
+  width: calc(var(--ch) * 0.66);
+  height: var(--ch);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  justify-items: center;
+  padding: 7% 8% 6%;
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 70% at 50% 35%, rgb(60 196 255 / 0.28), transparent 70%),
+    linear-gradient(170deg, #1d55e8 0%, #0a1fa8 45%, #06106e 100%);
+  box-shadow:
+    0 0 0 3px var(--paper),
+    0 0 0 6px #06106e,
+    0 0 0 7.5px rgb(255 255 255 / 0.6),
+    0 30px 60px rgb(2 6 50 / 0.6),
+    0 0 80px rgb(60 196 255 / 0.25);
+  overflow: hidden;
+  color: var(--paper);
+}
+/* Deco inner border with notched corners */
+.arcana-card::before {
+  content: "";
+  position: absolute;
+  inset: 4.5%;
+  border: 1.5px solid rgb(255 255 255 / 0.55);
+  clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px);
+  pointer-events: none;
+}
+/* Fine diagonal grain over the face */
+.arcana-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(-32deg, rgb(255 255 255 / 0.05) 0 2px, transparent 2px 7px);
+  pointer-events: none;
+}
+
+.arcana-num {
+  position: relative;
+  z-index: 1;
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 900;
+  font-stretch: 80%;
+  font-size: calc(var(--ch) * 0.085);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 18px rgb(60 196 255 / 0.8);
+}
+
+.arcana-art {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  overflow: visible;
+  fill: none;
+  stroke: var(--paper);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 6px rgb(60 196 255 / 0.9));
+}
+.arcana-art [pathLength] {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 1300ms var(--ease-out) 380ms forwards;
+}
+.arcana-art .fill {
+  fill: var(--paper);
+  stroke: none;
+  opacity: 0;
+  animation: fadeIn 500ms linear 1100ms forwards;
+}
+.arcana-art .stream {
+  stroke: var(--surf);
+  stroke-dasharray: 0.04 0.03;
+  animation: pour 1.4s linear infinite;
+  stroke-dashoffset: 0;
+}
+
+.arcana-name {
+  position: relative;
+  z-index: 1;
+  padding: 0.3em 1.2em 0.35em;
+  background: var(--paper);
+  color: var(--abyss);
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 900;
+  font-size: calc(var(--ch) * 0.046);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  clip-path: polygon(6% 0, 94% 0, 100% 50%, 94% 100%, 6% 100%, 0 50%);
+}
+
+.arcana-shine {
+  position: absolute;
+  inset: -20% -60%;
+  z-index: 2;
+  background: linear-gradient(105deg, transparent 40%, rgb(255 255 255 / 0.35) 48%, rgb(191 243 255 / 0.15) 52%, transparent 60%);
+  animation: shine 5.5s ease-in-out 1.4s infinite;
+  pointer-events: none;
+}
+
+.arcana-line {
+  max-width: calc(var(--ch) * 0.8);
+  text-align: center;
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 700;
+  font-size: clamp(1rem, 1.25vw, 1.3rem);
+  color: var(--paper);
+  text-shadow: 0 2px 10px rgb(2 6 50 / 0.9);
+  animation: fadeIn 600ms linear 900ms both;
+}
+
+@keyframes arcanaIn {
+  from { opacity: 0; transform: translate(-60px, 40px) rotate(-14deg) scale(0.85); }
+}
+@keyframes arcanaFloat {
+  0%, 100% { translate: 0 0; rotate: -2deg; }
+  50% { translate: 0 -14px; rotate: 1.5deg; }
+}
+@keyframes draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+@keyframes pour {
+  to { stroke-dashoffset: -0.07; }
+}
+@keyframes shine {
+  0%, 60% { transform: translateX(-60%); }
+  85%, 100% { transform: translateX(60%); }
+}
+
 /* ---------- Short laptop screens: badges in a row, tighter Walkman and section list ---------- */
 
 @media (min-width: 900px) and (max-height: 820px) {
@@ -1604,9 +1850,9 @@ body {
   .badge-name, .badge-bars { display: none; }
 
   .menu {
-    left: 20vw;
+    left: 13vw;
     top: 44%;
-    --unit: clamp(2.2rem, 11.4vw, 3.4rem);
+    --unit: clamp(2.3rem, 12.4vw, 4rem);
   }
   .menu-item {
     margin-left: calc(var(--indent) * 0.3);
@@ -1635,8 +1881,34 @@ body {
     transform: translate(calc(24vw - 15vh), 62vh) rotate(172deg);
   }
   .screen[data-view="sub"] .hero {
-    opacity: 0.3;
-    transform: translate(58vw, 74vh) rotate(-8deg) scale(1.05);
+    opacity: 0;
+  }
+  .arcana {
+    display: none;
+  }
+  .sub-body {
+    min-width: 0;
+    font-size: 1.05rem;
+  }
+  .sub-body .entry-bar {
+    flex-wrap: wrap;
+    row-gap: 0.15rem;
+  }
+  .sub-body .entry-bar h3 {
+    font-size: clamp(1.5rem, 7vw, 2rem);
+  }
+  .sub-body .lead {
+    font-size: 1.2rem;
+  }
+  .sub-body .entry-summary {
+    font-size: 1.1rem;
+  }
+  .sub-body .entry-points {
+    font-size: 1.02rem;
+  }
+  .sub-body .email-address {
+    font-size: clamp(1.2rem, 6vw, 1.6rem);
+    overflow-wrap: anywhere;
   }
 
   .ghost {

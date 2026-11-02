@@ -7,7 +7,7 @@ function useEngine() {
   // Re-render whenever the audio engine changes state.
   return useSyncExternalStore(
     (fn) => audio.subscribe(fn),
-    () => `${audio.trackIndex}|${audio.playing}|${audio.loading}|${audio.volume}|${audio.sfxOn}`,
+    () => `${audio.trackIndex}|${audio.playing}|${audio.loading}|${audio.volume}|${audio.sfxOn}|${audio.blocked}`,
     () => "ssr",
   );
 }
@@ -23,7 +23,11 @@ export default function Walkman() {
   const [elapsed, setElapsed] = useState(0);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    // The Walkman is on from the moment the page opens
+    audio.autoplay();
+  }, []);
 
   // Before hydration, show defaults so server and client markup match.
   const track = mounted ? audio.track : TRACKS[0];
@@ -32,6 +36,7 @@ export default function Walkman() {
   const loading = mounted && audio.loading;
   const volume = mounted ? audio.volume : 0.7;
   const sfxOn = mounted ? audio.sfxOn : true;
+  const blocked = mounted && playing && audio.blocked;
 
   // Tick the display clock while a sound is playing.
   useEffect(() => {
@@ -46,7 +51,7 @@ export default function Walkman() {
   };
 
   return (
-    <div className="walkman" data-playing={playing}>
+    <div className="walkman" data-playing={playing && !blocked} data-blocked={blocked}>
       <div className="wm-float">
         <svg className="wm-wire" viewBox="0 0 759 274" aria-hidden="true">
           <path d="M746 150 C 826 140, 876 -40, 816 -220 S 676 -560, 776 -820 S 1016 -1080, 1076 -1300" />
@@ -59,7 +64,7 @@ export default function Walkman() {
 
           <button
             className="wm-screen"
-            onClick={press(() => audio.toggle())}
+            onClick={press(() => (blocked ? audio.unlock() : audio.toggle()))}
             aria-label={playing ? `Pause ${track.title}` : `Play ${track.title}`}
           >
             <span className="wm-row wm-title">
@@ -74,7 +79,7 @@ export default function Walkman() {
               <span className="wm-glyph" aria-hidden="true">
                 ≈
               </span>
-              {playing ? track.subtitle : "Press play"}
+              {blocked ? "Click for sound" : playing ? track.subtitle : "Press play"}
             </span>
             <span className="wm-row wm-status">
               <span aria-hidden="true">{loading ? "…" : playing ? "▶" : "❚❚"}</span>
@@ -100,7 +105,7 @@ export default function Walkman() {
           </button>
           <button
             className="wm-btn wm-play"
-            onClick={press(() => audio.toggle())}
+            onClick={press(() => (blocked ? audio.unlock() : audio.toggle()))}
             aria-label={playing ? "Pause ocean sounds" : "Play ocean sounds"}
             aria-pressed={playing}
           >

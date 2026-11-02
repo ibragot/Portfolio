@@ -269,7 +269,10 @@ export default function PauseMenu() {
         </div>
       )}
 
-      {/* The illustrated character; each view moves it into a different pose */}
+      {/* In a submenu, the section's arcana card takes the avatar's place */}
+      {section && <Arcana id={section.id} key={`a-${section.id}`} />}
+
+      {/* The illustrated character, on the main menu only */}
       <div className="hero" data-pose={view} aria-hidden="true">
         <div className="hero-float">
           <HeroModel />
@@ -430,6 +433,137 @@ export default function PauseMenu() {
         />
       )}
     </main>
+  );
+}
+
+/* ---------- Arcana cards: one original tarot-style card per section ---------- */
+
+const ARCANA: Record<SectionId, { num: string; name: string; line: string; art: React.ReactNode }> = {
+  profile: {
+    num: "0",
+    name: "The Fool",
+    line: "Every journey starts with one step.",
+    art: (
+      <>
+        <circle cx="100" cy="74" r="22" pathLength={1} />
+        {Array.from({ length: 12 }, (_, i) => {
+          const a = (i / 12) * Math.PI * 2;
+          return <line key={i} x1={100 + Math.cos(a) * 30} y1={74 + Math.sin(a) * 30} x2={100 + Math.cos(a) * 40} y2={74 + Math.sin(a) * 40} pathLength={1} />;
+        })}
+        <path d="M24 214 L118 214 L150 246" pathLength={1} />
+        <circle cx="108" cy="168" r="6" pathLength={1} />
+        <path d="M108 174 L106 196 M106 196 L98 212 M106 196 L114 212 M107 182 L94 176 M107 182 L122 172 L132 160" pathLength={1} />
+        <circle cx="134" cy="156" r="5" className="fill" />
+      </>
+    ),
+  },
+  projects: {
+    num: "I",
+    name: "The Magician",
+    line: "Making something out of nothing.",
+    art: (
+      <>
+        <path d="M100 62 C 86 44, 62 44, 62 62 C 62 80, 86 80, 100 62 C 114 44, 138 44, 138 62 C 138 80, 114 80, 100 62 Z" pathLength={1} />
+        <line x1="100" y1="96" x2="100" y2="186" pathLength={1} />
+        <circle cx="100" cy="92" r="5" className="fill" />
+        <circle cx="100" cy="190" r="4" pathLength={1} />
+        <line x1="30" y1="212" x2="170" y2="212" pathLength={1} />
+        <path d="M44 212 L40 194 L60 194 L56 212" pathLength={1} />
+        <path d="M80 212 L80 186 M74 192 L86 192" pathLength={1} />
+        <circle cx="124" cy="200" r="11" pathLength={1} />
+        <path d="M124 191 L128 204 L116 196 L132 196 L120 204 Z" pathLength={1} />
+        <path d="M150 212 L150 194 L162 194 L162 212" pathLength={1} />
+      </>
+    ),
+  },
+  experience: {
+    num: "VII",
+    name: "The Chariot",
+    line: "Moving forward, as a team.",
+    art: (
+      <>
+        <path d="M100 42 L106 60 L125 60 L110 71 L116 89 L100 78 L84 89 L90 71 L75 60 L94 60 Z" pathLength={1} />
+        <circle cx="100" cy="158" r="50" pathLength={1} />
+        <circle cx="100" cy="158" r="8" className="fill" />
+        {Array.from({ length: 8 }, (_, i) => {
+          const a = (i / 8) * Math.PI * 2;
+          return <line key={i} x1={100 + Math.cos(a) * 12} y1={158 + Math.sin(a) * 12} x2={100 + Math.cos(a) * 48} y2={158 + Math.sin(a) * 48} pathLength={1} />;
+        })}
+        <path d="M30 222 L170 222 M44 232 L156 232" pathLength={1} />
+      </>
+    ),
+  },
+  skills: {
+    num: "IX",
+    name: "The Hermit",
+    line: "The tools I carry with me.",
+    art: (
+      <>
+        <path d="M100 52 L100 70" pathLength={1} />
+        <path d="M84 70 L116 70 L124 86 L124 140 L116 156 L84 156 L76 140 L76 86 Z" pathLength={1} />
+        <path d="M100 92 L105 108 L121 108 L108 118 L113 134 L100 124 L87 134 L92 118 L79 108 L95 108 Z" className="fill" />
+        <path d="M60 230 L132 64" pathLength={1} />
+        {[0, 1, 2, 3, 4, 5].map((i) => {
+          const a = Math.PI * (0.05 + i * 0.18);
+          return <line key={i} x1={100 + Math.cos(a) * 44} y1={113 + Math.sin(a) * 44 - 40} x2={100 + Math.cos(a) * 62} y2={113 + Math.sin(a) * 62 - 40} pathLength={1} />;
+        })}
+      </>
+    ),
+  },
+  activities: {
+    num: "XIV",
+    name: "Temperance",
+    line: "Giving back to the community.",
+    art: (
+      <>
+        <path d="M100 40 L124 80 L76 80 Z" pathLength={1} />
+        <path d="M44 104 L52 140 L76 140 L84 104 Z" pathLength={1} />
+        <path d="M116 156 L124 192 L148 192 L156 156 Z" pathLength={1} />
+        <path d="M80 108 C 110 100, 128 120, 132 152" className="stream" pathLength={1} />
+        <path d="M28 214 Q 64 204 100 214 T 172 214 M28 230 Q 64 220 100 230 T 172 230" pathLength={1} />
+      </>
+    ),
+  },
+  contact: {
+    num: "XVII",
+    name: "The Star",
+    line: "Let's build the next thing.",
+    art: (
+      <>
+        <path d="M100 52 L110 92 L150 102 L110 112 L100 152 L90 112 L50 102 L90 92 Z" pathLength={1} />
+        <path d="M100 70 L104 98 L132 102 L104 106 L100 134 L96 106 L68 102 L96 98 Z" className="fill" />
+        {[
+          [44, 50],
+          [158, 56],
+          [36, 150],
+          [164, 148],
+          [70, 176],
+          [134, 180],
+        ].map(([x, y], i) => (
+          <path key={i} d={`M${x} ${y - 7} L${x + 2} ${y - 2} L${x + 7} ${y} L${x + 2} ${y + 2} L${x} ${y + 7} L${x - 2} ${y + 2} L${x - 7} ${y} L${x - 2} ${y - 2} Z`} className="fill" />
+        ))}
+        <path d="M28 214 Q 64 204 100 214 T 172 214 M28 230 Q 64 220 100 230 T 172 230" pathLength={1} />
+      </>
+    ),
+  },
+};
+
+function Arcana({ id }: { id: SectionId }) {
+  const a = ARCANA[id];
+  return (
+    <div className="arcana" aria-hidden="true">
+      <div className="arcana-tilt">
+        <div className="arcana-card">
+          <span className="arcana-num">{a.num}</span>
+          <svg className="arcana-art" viewBox="0 0 200 260">
+            {a.art}
+          </svg>
+          <span className="arcana-name">{a.name}</span>
+          <span className="arcana-shine" />
+        </div>
+      </div>
+      <p className="arcana-line">{a.line}</p>
+    </div>
   );
 }
 
