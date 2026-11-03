@@ -9,6 +9,7 @@ import Walkman from "./Walkman";
 import { FaGithub, FaLinkedinIn } from "react-icons/fa6";
 import { MdAlternateEmail } from "react-icons/md";
 import { GAMES } from "./Hobbies";
+import { AegisStage } from "./Aegis";
 import { DuelStage } from "./Duel";
 import { LibraryStage } from "./Library";
 import { RecommenderStage } from "./Stages";
@@ -663,6 +664,11 @@ function ProfilePanel() {
 // Which skills each piece of work uses, so picking a skill lights up where it shows up.
 const USES: { id: string; title: string; skills: string[] }[] = [
   {
+    id: "aegis",
+    title: "Aegis",
+    skills: ["Python", "SQL", "Bash", "FastAPI", "scikit-learn", "PostgreSQL", "Kafka", "Redis", "REST APIs", "Docker", "Kubernetes", "Terraform", "AWS", "GitHub Actions", "Claude API", "Unit testing", "System design"],
+  },
+  {
     id: "recommender",
     title: "AI Movie Recommender",
     skills: ["Python", "SQL", "React", "FastAPI", "PyTorch", "PostgreSQL", "REST APIs", "Docker", "GitHub Actions", "Railway", "Vercel", "Hugging Face Hub", "Unit testing", "System design"],
@@ -895,6 +901,7 @@ function ProjectsPanel({ proj, pickProj }: { proj: number; pickProj: (i: number)
 }
 
 function ProjectStage({ p }: { p: Project }) {
+  if (p.id === "aegis") return <AegisStage />;
   if (p.id === "recommender") return <RecommenderStage />;
   if (p.id === "tilawah") return <TilawahStage />;
   if (p.id === "msa-library") return <LibraryStage />;
