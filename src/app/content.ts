@@ -25,6 +25,22 @@ export const profile = {
 
 export const projects: Project[] = [
   {
+    id: "aegis",
+    title: "Aegis",
+    kind: "Cloud security, machine learning",
+    date: "Nov 2026",
+    stack: ["Python", "Kafka", "scikit-learn", "XGBoost", "Claude API", "PostgreSQL", "Docker", "Kubernetes", "Terraform", "AWS"],
+    summary:
+      "A cloud security detection platform: rules and machine learning flag suspicious activity, an entity graph links it into incidents, and an AI investigator explains them.",
+    points: [
+      "23 ATT&CK-mapped detection rules written as YAML, plus an ML ensemble (Isolation Forest, autoencoder, XGBoost, Markov sequence model) reaching F1 0.97 at a 0.2% false-positive rate on held-out data.",
+      "A graph-based correlator turns 18 weak alerts into one explainable CRITICAL incident, catching an exfiltration from an IP that appears in no login event.",
+      "A RAG and Claude investigator writes cited incident reports, with defenses against prompt injection hidden in attacker-controlled logs.",
+      "Kafka microservices deployed with Docker, Kubernetes and Terraform on AWS EKS, monitored with Prometheus, Grafana and OpenTelemetry, and tested in GitHub Actions CI.",
+    ],
+    links: [{ label: "Source", href: "https://github.com/ibragot/Aegis" }],
+  },
+  {
     id: "recommender",
     title: "AI Movie Recommender",
     kind: "Machine learning, full stack",
@@ -96,10 +112,10 @@ export const projects: Project[] = [
 
 export const skills = [
   { group: "Languages", items: ["Python", "Java", "TypeScript", "SQL", "Bash", "Luau"] },
-  { group: "Frameworks", items: ["React", "Next.js", "FastAPI", "Express", "PyTorch"] },
-  { group: "Data and backend", items: ["PostgreSQL", "Supabase", "REST APIs", "OAuth2"] },
-  { group: "Cloud and DevOps", items: ["Docker", "GitHub Actions", "Railway", "Vercel", "Hugging Face Hub"] },
-  { group: "AI services", items: ["Azure Cognitive Services", "Gemini API", "Groq SDK"] },
+  { group: "Frameworks", items: ["React", "Next.js", "FastAPI", "Express", "PyTorch", "scikit-learn"] },
+  { group: "Data and backend", items: ["PostgreSQL", "Supabase", "Kafka", "Redis", "REST APIs", "OAuth2"] },
+  { group: "Cloud and DevOps", items: ["Docker", "Kubernetes", "Terraform", "AWS", "GitHub Actions", "Railway", "Vercel", "Hugging Face Hub"] },
+  { group: "AI services", items: ["Claude API", "Azure Cognitive Services", "Gemini API", "Groq SDK"] },
   { group: "Practices", items: ["OOP", "System design", "Agile", "Unit testing"] },
 ];
 
