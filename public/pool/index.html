@@ -9,100 +9,239 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-  /* Layout: one full-bleed WebGL room; a quiet HUD pinned to the corners like pool signage. */
+  /* Layout: full-bleed WebGL world; each scene gets a quiet HUD pinned to the corners, plus one centred moment. */
   :root {
     --abyss: #04131d;
     --ink: #e6f4fa;
-    --ink-dim: rgba(214, 238, 248, 0.62);
+    --ink-dim: rgba(214, 238, 248, 0.66);
     --line: rgba(190, 228, 245, 0.28);
     --glow: #7fd3f2;
+    --brass: #e7c98d;
+    --room-bg: #1c140b;
+    --room-accent: #e8c98a;
     --display: "Instrument Serif", "Cormorant Garamond", Georgia, serif;
     --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
     color-scheme: dark;
   }
   html, body { height: 100%; margin: 0; }
-  body {
-    background: var(--abyss);
-    color: var(--ink);
-    overflow: hidden;
-    font-family: var(--mono);
-  }
+  body { background: var(--abyss); color: var(--ink); overflow: hidden; font-family: var(--mono); }
+  button { font: inherit; color: inherit; }
   #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+  body[data-state="hall"] #scene { cursor: default; }
+  body.door-hover #scene { cursor: pointer; }
 
-  .hud {
+  .layer {
     position: fixed; inset: 0; pointer-events: none;
-    display: grid; grid-template-rows: auto 1fr auto;
     padding-block: calc(env(safe-area-inset-top, 0px) + 22px) calc(env(safe-area-inset-bottom, 0px) + 22px);
     padding-left: max(16px, env(safe-area-inset-left, 0px));
     padding-right: max(16px, env(safe-area-inset-right, 0px));
+    opacity: 0; visibility: hidden;
+    transition: opacity 0.7s ease, visibility 0s linear 0.7s;
   }
   @media (min-width: 720px) {
-    .hud { padding-left: max(40px, env(safe-area-inset-left, 0px)); padding-right: max(40px, env(safe-area-inset-right, 0px)); padding-block: 32px 34px; }
+    .layer { padding-left: max(40px, env(safe-area-inset-left, 0px)); padding-right: max(40px, env(safe-area-inset-right, 0px)); padding-block: 32px 34px; }
   }
-  .top, .bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
-  .top { align-items: flex-start; }
+  body[data-state="pool"] .pool-ui, body[data-state="hall"] .hall-ui { opacity: 1; visibility: visible; transition: opacity 1s ease 0.15s, visibility 0s; }
+
   .label {
     font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim);
     display: flex; gap: 10px; align-items: center; margin: 0;
   }
   .label .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--glow); box-shadow: 0 0 10px var(--glow); }
-  .gauge { text-align: right; display: grid; gap: 6px; justify-items: end; }
-  .gauge .depth { font-size: 13px; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .corner-tl { position: absolute; top: inherit; }
+  .bar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .stack { display: grid; gap: 8px; justify-items: end; text-align: right; }
 
-  .name {
-    font-family: var(--display); font-weight: 400; margin: 0;
-    font-size: clamp(40px, 6.6vw, 108px); line-height: 0.9; letter-spacing: -0.01em;
-    color: var(--ink); text-wrap: balance;
-    text-shadow: 0 0 40px rgba(120, 200, 240, 0.35);
-    mix-blend-mode: screen;
-  }
-  .name em { font-style: italic; color: var(--glow); }
-  .who { display: grid; gap: 14px; min-width: 0; }
-  .who p { margin: 0; max-width: 46ch; font-size: 12px; line-height: 1.6; color: var(--ink-dim); }
-  .hint { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); display: grid; gap: 6px; justify-items: end; text-align: right; }
-  .hint span { border-top: 1px solid var(--line); padding-top: 6px; }
-
-  .sound {
+  .chip-btn {
     pointer-events: auto; cursor: pointer;
     font: 500 11px/1 var(--mono); letter-spacing: 0.16em; text-transform: uppercase;
     color: var(--ink); background: rgba(10, 40, 58, 0.35); border: 1px solid var(--line);
-    padding: 9px 12px; border-radius: 2px; backdrop-filter: blur(6px);
+    padding: 9px 12px; border-radius: 2px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   }
-  .sound:hover { border-color: var(--glow); }
-  .sound:focus-visible { outline: 2px solid var(--glow); outline-offset: 3px; }
+  .chip-btn:hover { border-color: var(--glow); }
+  .chip-btn:focus-visible, .door-btn:focus-visible, .work-btn:focus-visible, .room a:focus-visible, .room button:focus-visible { outline: 2px solid var(--glow); outline-offset: 3px; }
+  .global { position: fixed; z-index: 5; top: calc(env(safe-area-inset-top, 0px) + 22px); right: max(16px, env(safe-area-inset-right, 0px)); }
+  @media (min-width: 720px) { .global { top: 32px; right: max(40px, env(safe-area-inset-right, 0px)); } }
+  .under-global { margin-top: 44px; }
+
+  /* ---- pool: the welcome */
+  .welcome { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: inherit; }
+  .welcome::before {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(ellipse 55% 42% at 50% 50%, rgba(2, 14, 24, 0.55), rgba(2, 14, 24, 0) 70%);
+  }
+  .welcome-inner { position: relative; display: grid; gap: 18px; justify-items: center; max-width: 820px; }
+  .welcome .eyebrow { font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ink-dim); margin: 0; }
+  .welcome .eyebrow b { color: var(--ink); font-weight: 500; }
+  .welcome h1 {
+    font-family: var(--display); font-weight: 400; margin: 0;
+    font-size: clamp(46px, 7.6vw, 118px); line-height: 0.92; letter-spacing: -0.01em; text-wrap: balance;
+    text-shadow: 0 0 50px rgba(110, 200, 240, 0.35);
+  }
+  .welcome h1 em { font-style: italic; color: var(--glow); }
+  .welcome .sub { margin: 0; max-width: 44ch; font-size: 12px; line-height: 1.7; color: var(--ink-dim); }
+  .work-btn {
+    pointer-events: auto; cursor: pointer; margin-top: 10px;
+    display: inline-flex; align-items: center; gap: 14px;
+    padding: 8px 8px 8px 22px; border-radius: 999px;
+    background: rgba(200, 236, 250, 0.1); border: 1px solid rgba(200, 236, 250, 0.35);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    font: 500 12px/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink);
+    transition: background 0.4s ease, border-color 0.4s ease, transform 0.4s ease;
+  }
+  .work-btn .ring { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: #06202e; transition: transform 0.5s cubic-bezier(.2,.8,.2,1); }
+  .work-btn:hover { background: rgba(200, 236, 250, 0.18); border-color: var(--glow); }
+  .work-btn:hover .ring { transform: translateY(3px); }
+  .pool-ui .hint { position: absolute; right: inherit; bottom: inherit; }
+  .hint { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); display: grid; gap: 6px; justify-items: end; text-align: right; margin: 0; }
+  .hint span { border-top: 1px solid var(--line); padding-top: 6px; }
+  .bottom-row { position: absolute; left: 0; right: 0; bottom: 0; padding: inherit; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+
+  /* ---- hallway */
+  .hall-ui { --ink-dim: rgba(245, 230, 205, 0.7); --line: rgba(240, 215, 170, 0.3); --glow: var(--brass); }
+  .hall-ui .label .dot { background: var(--brass); box-shadow: 0 0 10px var(--brass); }
+  .hall-ui .chip-btn { background: rgba(40, 26, 12, 0.4); }
+  .caption {
+    position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%);
+    text-align: center; display: grid; gap: 6px; justify-items: center; width: min(90vw, 520px);
+  }
+  .caption .room-name { font-family: var(--display); font-size: clamp(30px, 4vw, 48px); line-height: 1; color: #f6ead2; min-height: 1em; text-shadow: 0 0 30px rgba(255, 210, 140, 0.35); }
+  .caption .room-meta { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim); min-height: 1.2em; }
+  .directory {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: inherit;
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+  }
+  .door-btn {
+    pointer-events: auto; cursor: pointer;
+    display: inline-flex; gap: 10px; align-items: baseline;
+    padding: 10px 14px; border-radius: 2px;
+    background: rgba(30, 20, 10, 0.45); border: 1px solid rgba(240, 215, 170, 0.25);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    font: 400 12px/1 var(--mono); letter-spacing: 0.1em; color: #f3e6cc;
+    transition: border-color 0.3s ease, background 0.3s ease;
+  }
+  .door-btn b { font-weight: 500; color: var(--brass); font-variant-numeric: tabular-nums; }
+  .door-btn:hover, .door-btn.is-hot { border-color: var(--brass); background: rgba(70, 48, 22, 0.55); }
+  .walk-hint { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); margin: 0; }
+  @media (max-width: 640px) {
+    .caption { bottom: 150px; }
+    .door-btn { padding: 9px 10px; font-size: 11px; }
+    .pool-ui .hint { display: none; }
+  }
+
+  /* ---- rooms (behind each door) */
+  .room {
+    position: fixed; inset: 0; z-index: 10; overflow-y: auto; overscroll-behavior: contain;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, color-mix(in srgb, var(--room-accent) 28%, transparent), transparent 70%),
+      var(--room-bg);
+    color: #f4ecdf;
+    opacity: 0; transition: opacity 0.7s ease;
+  }
+  .room.open { opacity: 1; }
+  .room-inner {
+    max-width: 1040px; margin: 0 auto;
+    padding-block: calc(env(safe-area-inset-top, 0px) + 28px) calc(env(safe-area-inset-bottom, 0px) + 64px);
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid; gap: 40px;
+    transform: translateY(14px); transition: transform 0.9s cubic-bezier(.2,.8,.2,1);
+  }
+  @media (min-width: 720px) { .room-inner { padding-left: max(40px, env(safe-area-inset-left, 0px)); padding-right: max(40px, env(safe-area-inset-right, 0px)); } }
+  .room.open .room-inner { transform: none; }
+  .room-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .room .plate { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--room-accent); margin: 0; }
+  .room .back {
+    cursor: pointer; font: 500 11px/1 var(--mono); letter-spacing: 0.16em; text-transform: uppercase;
+    color: #f4ecdf; background: transparent; border: 1px solid color-mix(in srgb, var(--room-accent) 45%, transparent);
+    padding: 10px 14px; border-radius: 2px;
+  }
+  .room .back:hover { border-color: var(--room-accent); }
+  .room h2 { font-family: var(--display); font-weight: 400; font-size: clamp(52px, 9vw, 132px); line-height: 0.9; margin: 0; text-wrap: balance; }
+  .room h2 em { font-style: italic; color: var(--room-accent); }
+  .room .lede { font-size: 14px; line-height: 1.75; color: rgba(244, 236, 223, 0.78); max-width: 62ch; margin: 0; }
+  .room h3 { font-family: var(--display); font-weight: 400; font-size: 32px; line-height: 1.05; margin: 0; }
+  .room p, .room li { font-size: 13px; line-height: 1.7; color: rgba(244, 236, 223, 0.8); }
+  .room ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+  .room a { color: var(--room-accent); }
+  .room-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+  .card {
+    min-width: 0; display: grid; gap: 12px; align-content: start;
+    padding: 22px; border: 1px solid rgba(244, 236, 223, 0.14); border-radius: 3px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+  .card .meta { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--room-accent); margin: 0; }
+  .card p { margin: 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips span { font-size: 11px; padding: 5px 8px; border: 1px solid rgba(244, 236, 223, 0.18); border-radius: 2px; color: rgba(244, 236, 223, 0.85); }
+  .links { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 0; border-top: 1px solid rgba(244, 236, 223, 0.14); margin: 0; }
+  .facts div { padding: 16px 0; border-bottom: 1px solid rgba(244, 236, 223, 0.14); padding-right: 16px; min-width: 0; }
+  .facts dt { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--room-accent); margin-bottom: 6px; }
+  .facts dd { margin: 0; font-size: 14px; line-height: 1.5; }
+  .email-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .email-row code { font-family: var(--display); font-size: clamp(26px, 4.5vw, 46px); user-select: all; overflow-wrap: anywhere; }
+  .copy { cursor: pointer; font: 500 11px/1 var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: #1a120a; background: var(--room-accent); border: 0; padding: 10px 14px; border-radius: 2px; }
 
   #veil {
-    position: fixed; inset: 0; background: var(--abyss); pointer-events: none;
+    position: fixed; inset: 0; z-index: 20; background: var(--abyss); pointer-events: none;
     display: grid; place-items: center; transition: opacity 2.4s ease;
     font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim);
   }
   #veil.gone { opacity: 0; }
-  @media (prefers-reduced-motion: reduce) { #veil { transition-duration: 0.4s; } }
-  @media (max-width: 560px) { .hint { display: none; } .who p { font-size: 11px; } }
+  @media (prefers-reduced-motion: reduce) {
+    #veil, .layer, .room, .room-inner { transition-duration: 0.3s !important; }
+  }
 </style>
 </head>
-<body>
-<canvas id="scene" aria-label="A flooded, tiled pool hall. Move the pointer to look around and click the floor to make ripples."></canvas>
+<body data-state="pool">
+<canvas id="scene" aria-label="An interactive 3D scene. A flooded pool hall that leads, under the water, to a hotel hallway with doors to each part of the portfolio."></canvas>
 
-<div class="hud">
-  <div class="top">
+<div class="global"><button class="chip-btn" id="sound" type="button" aria-pressed="false">Sound off</button></div>
+
+<!-- Scene 1: the pool hall -->
+<div class="layer pool-ui">
+  <div class="bar">
     <p class="label"><span class="dot"></span>Natatorium · Lane 03</p>
-    <div class="gauge">
-      <button class="sound" id="sound" type="button" aria-pressed="false">Sound off</button>
-      <p class="label depth" id="depth">Depth 0.30 m</p>
+    <div class="stack under-global"><p class="label" id="depth">Depth 0.30 m</p></div>
+  </div>
+  <div class="welcome">
+    <div class="welcome-inner">
+      <p class="eyebrow"><b>Noureldin Ibrahim</b> · Software engineer · Ottawa</p>
+      <h1>Welcome to my <em>Liminal Space</em></h1>
+      <p class="sub">You have been here before. Full-stack apps, machine learning systems and Roblox games, kept somewhere under the water.</p>
+      <button class="work-btn" id="show-work" type="button">Show work
+        <span class="ring" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v11M2 7.5 7 12.5l5-5" stroke="currentColor" stroke-width="1.5"/></svg></span>
+      </button>
     </div>
   </div>
-  <div></div>
-  <div class="bottom">
-    <div class="who">
-      <p class="label">Software engineer · Ottawa</p>
-      <h1 class="name">Noureldin <em>Ibrahim</em></h1>
-      <p>Full-stack apps, machine learning systems and Roblox games. Portfolio rooms open soon.</p>
+  <div class="bottom-row">
+    <span></span>
+    <p class="hint"><span>Move to look around</span><span>Touch the water</span></p>
+  </div>
+</div>
+
+<!-- Scene 2: the hallway -->
+<div class="layer hall-ui">
+  <div class="bar">
+    <p class="label"><span class="dot"></span>Liminal Hotel · Floor B1</p>
+    <div class="stack under-global"><button class="chip-btn" id="surface" type="button">Back to the pool</button></div>
+  </div>
+  <div class="caption" aria-live="polite">
+    <div class="room-name" id="cap-name"></div>
+    <div class="room-meta" id="cap-meta">Scroll to walk · Choose a door</div>
+  </div>
+  <nav class="directory" aria-label="Rooms" id="directory"></nav>
+</div>
+
+<!-- Behind each door -->
+<div class="room" id="room" role="dialog" aria-modal="true" aria-labelledby="room-title" hidden>
+  <div class="room-inner">
+    <div class="room-head">
+      <p class="plate" id="room-plate"></p>
+      <button class="back" id="room-back" type="button">Back to the hallway</button>
     </div>
-    <div class="hint">
-      <span>Move to look around</span>
-      <span>Touch the water</span>
-    </div>
+    <h2 id="room-title"></h2>
+    <div id="room-body" style="display:grid;gap:28px"></div>
   </div>
 </div>
 
@@ -123,12 +262,108 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
+const V3 = THREE.Vector3;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isMobile = matchMedia('(pointer: coarse)').matches;
+const SPEED = reduceMotion ? 0.55 : 1;
 
-// ---------------------------------------------------------------- renderer
+// =====================================================================================
+// Portfolio content (mirrors src/app/content.ts)
+// =====================================================================================
+const PROFILE = {
+  name: 'Noureldin Ibrahim', role: 'Software engineer, CS at uOttawa', location: 'Ottawa, Ontario',
+  email: 'nourmgi04@gmail.com', github: 'https://github.com/ibragot', linkedin: 'https://linkedin.com/in/noureldin-ibrahim',
+  intro: 'I build full-stack apps, machine learning systems, and Roblox games. I like shipping things people actually use, from a Quran recitation tutor to a movie recommender trained on 100K ratings.',
+  education: 'University of Ottawa · Biomedical Science, intended major Computer Science · Expected 2028',
+};
+const PROJECTS = [
+  { title: 'Aegis', kind: 'Cloud security, machine learning', date: 'Nov 2026', stack: ['Python', 'Kafka', 'scikit-learn', 'XGBoost', 'Claude API', 'PostgreSQL', 'Docker', 'Kubernetes', 'Terraform', 'AWS'],
+    summary: 'A cloud security detection platform: rules and machine learning flag suspicious activity, an entity graph links it into incidents, and an AI investigator explains them.',
+    points: ['23 ATT&CK-mapped detection rules plus an ML ensemble reaching F1 0.97 at a 0.2% false-positive rate on held-out data.', 'A graph-based correlator turns 18 weak alerts into one explainable CRITICAL incident.', 'Kafka microservices on AWS EKS with Docker, Kubernetes and Terraform, monitored with Prometheus, Grafana and OpenTelemetry.'],
+    links: [['Source', 'https://github.com/ibragot/Aegis']] },
+  { title: 'AI Movie Recommender', kind: 'Machine learning, full stack', date: 'Feb 2026 to now', stack: ['Python', 'PyTorch', 'FastAPI', 'PostgreSQL', 'React', 'Docker'],
+    summary: 'Personalized movie picks from a matrix factorization model trained on 100,836 MovieLens ratings.',
+    points: ['64-dimensional embeddings reaching a test RMSE of 0.87 on a matrix that is 98.3% empty.', 'FastAPI and PostgreSQL in Docker Compose on Railway, React frontend on Vercel.', 'GitHub Actions runs tests, linting and Docker builds before every deploy.'],
+    links: [['Try it live', 'https://airecommender.noureldin.dev'], ['Source', 'https://github.com/ibragot/ai-recommender-system']] },
+  { title: 'Tilawah', kind: 'Hackathon, full stack', date: 'Apr 2026', stack: ['React', 'Express', 'Groq SDK', 'Azure Speech', 'Gemini', 'OAuth2'],
+    summary: 'Read, listen to, and practice Quran recitation with real-time AI feedback.',
+    points: ['Transcribes recitation with Azure Speech and scores it with Gemini for per-word accuracy and tajweed feedback.', 'Express proxy handles Quran Foundation OAuth2 so the client secret never reaches the browser.'],
+    links: [['Source', 'https://github.com/ibragot/Tilawah']] },
+  { title: 'MSA Library System', kind: 'Team project, full stack', date: 'Oct 2025 to now', stack: ['React', 'Supabase', 'PostgreSQL', 'CI/CD'],
+    summary: "One shared catalog for 5+ student organizations, built with the University of Ottawa MSA's 8-developer team.",
+    points: ['Each organization keeps its own shelf; everyone searches one catalog.', 'Part of an Agile team rebuilding IT infrastructure for 1,000+ students.'],
+    links: [] },
+  { title: 'Wizard Duel', kind: 'Roblox game', date: 'In development', stack: ['Luau', 'Roblox Studio'],
+    summary: 'A wizard dueling game where players face off with spells across a bright floating-island arena.',
+    points: ['Spells ranked in tiers up to Mythic, topped by an Insane tier of signature moves.', 'Insane spells trigger cutscenes that play out in the live arena.'],
+    links: [['Play on Roblox', 'https://www.roblox.com/games/103624964787159/Wizard-Duel']] },
+];
+const SKILLS = [
+  ['Languages', ['Python', 'Java', 'TypeScript', 'SQL', 'Bash', 'Luau']],
+  ['Frameworks', ['React', 'Next.js', 'FastAPI', 'Express', 'PyTorch', 'scikit-learn']],
+  ['Data and backend', ['PostgreSQL', 'Supabase', 'Kafka', 'Redis', 'REST APIs', 'OAuth2']],
+  ['Cloud and DevOps', ['Docker', 'Kubernetes', 'Terraform', 'AWS', 'GitHub Actions', 'Railway', 'Vercel', 'Hugging Face Hub']],
+  ['AI services', ['Claude API', 'Azure Cognitive Services', 'Gemini API', 'Groq SDK']],
+  ['Practices', ['OOP', 'System design', 'Agile', 'Unit testing']],
+];
+const HOBBIES = [
+  ['Gaming', 'Player One', 'Games are why I started coding: I wanted to know how they worked.'],
+  ['Rock climbing', 'Bouldering', 'Every route is a puzzle: read it, try it, fall, adjust. Same loop as debugging.'],
+  ['Soccer', 'Team sport', 'Soccer taught me teamwork before any group project did.'],
+  ['Fashion', 'Fit check', 'Colour, proportion and contrast: the same rules I use for interfaces.'],
+  ['Day trading', 'Charts all day', 'Trading taught me risk management the hard way: plan the exit before the entry.'],
+  ['Harry Potter', 'Lifelong fan', "Wizard Duel's spell tiers owe a lot to that world."],
+  ['Community', 'MAC Youth, Ottawa MSA', 'I run bi-weekly community events for 100+ attendees, from logistics to promotion.'],
+];
+
+const chips = (a) => `<div class="chips">${a.map((s) => `<span>${s}</span>`).join('')}</div>`;
+const linkRow = (l) => l.length ? `<div class="links">${l.map(([t, h]) => `<a href="${h}" target="_blank" rel="noopener">${t} ↗</a>`).join('')}</div>` : '';
+const projectCard = (p) => `<article class="card"><p class="meta">${p.kind} · ${p.date}</p><h3>${p.title}</h3><p>${p.summary}</p><ul>${p.points.map((x) => `<li>${x}</li>`).join('')}</ul>${chips(p.stack)}${linkRow(p.links)}</article>`;
+
+const ROOMS = [
+  { key: 'profile', label: 'Profile', no: 101, place: 'The Lobby', bg: '#1d150c', accent: '#e9c98b', flash: [1.7, 1.45, 1.05],
+    title: 'Hello, I\'m <em>Noureldin</em>.',
+    body: () => `<p class="lede">${PROFILE.intro}</p>
+      <dl class="facts">
+        <div><dt>Role</dt><dd>${PROFILE.role}</dd></div>
+        <div><dt>Based in</dt><dd>${PROFILE.location}</dd></div>
+        <div><dt>Education</dt><dd>${PROFILE.education}</dd></div>
+      </dl>` },
+  { key: 'projects', label: 'Projects', no: 102, place: 'The Archive', bg: '#0b1622', accent: '#86d5f2', flash: [1.2, 1.55, 1.8],
+    title: 'Things I\'ve <em>shipped</em>.',
+    body: () => `<div class="room-grid">${PROJECTS.map(projectCard).join('')}</div>` },
+  { key: 'skills', label: 'Skills', no: 103, place: 'The Workshop', bg: '#111913', accent: '#b2dba5', flash: [1.4, 1.65, 1.3],
+    title: 'The <em>toolbox</em>.',
+    body: () => `<div class="room-grid">${SKILLS.map(([g, items]) => `<section class="card"><p class="meta">${g}</p>${chips(items)}</section>`).join('')}</div>` },
+  { key: 'hobbies', label: 'Hobbies', no: 104, place: 'The Game Room', bg: '#1a0f1d', accent: '#e6aef2', flash: [1.6, 1.3, 1.75],
+    title: 'When I\'m not <em>coding</em>.',
+    body: () => `<div class="room-grid">${HOBBIES.map(([n, t, l]) => `<article class="card"><p class="meta">${t}</p><h3>${n}</h3><p>${l}</p></article>`).join('')}</div>` },
+  { key: 'hackathons', label: 'Hackathons', no: 105, place: 'The All-Nighter', bg: '#100e19', accent: '#ffb877', flash: [1.8, 1.35, 0.95],
+    title: 'Built against the <em>clock</em>.',
+    body: () => `<div class="room-grid">${projectCard({ ...PROJECTS[2], kind: 'Quran.com Hackathon' })}</div>
+      <p class="lede">More hackathon builds will be added here.</p>` },
+  { key: 'contact', label: 'Contact', no: 106, place: 'The Front Desk', bg: '#19140e', accent: '#f1d6a2', flash: [1.75, 1.55, 1.2],
+    title: 'Ring the <em>bell</em>.',
+    body: () => `<p class="lede">Open to internships, collaborations and good conversations about games or machine learning.</p>
+      <div class="email-row"><code id="email">${PROFILE.email}</code><button class="copy" id="copy-email" type="button">Copy email</button></div>
+      <dl class="facts">
+        <div><dt>GitHub</dt><dd><a href="${PROFILE.github}" target="_blank" rel="noopener">github.com/ibragot ↗</a></dd></div>
+        <div><dt>LinkedIn</dt><dd><a href="${PROFILE.linkedin}" target="_blank" rel="noopener">in/noureldin-ibrahim ↗</a></dd></div>
+        <div><dt>Location</dt><dd>${PROFILE.location}</dd></div>
+      </dl>` },
+];
+
+// =====================================================================================
+// Renderer, shared uniforms
+// =====================================================================================
 const canvas = document.getElementById('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+} catch (e) {
+  document.getElementById('veil').textContent = 'This page needs WebGL. Try another browser.';
+  throw e;
+}
 renderer.setPixelRatio(Math.min(devicePixelRatio, isMobile ? 1.25 : 1.5));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -136,99 +371,88 @@ renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-const scene = new THREE.Scene();
-const FOG = new THREE.Color(0x0a3149);
-scene.background = FOG.clone();
-scene.fog = new THREE.FogExp2(FOG, 0.042);
+const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.05, 140);
+const U = { uTime: { value: 0 } };
 
-const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 120);
-
-// ---------------------------------------------------------------- water region (the flooded floor)
-const WATER_Y = 0.035;
-const W_MIN = new THREE.Vector2(-4.6, -26);   // x, z
-const W_SIZE = new THREE.Vector2(16.6, 33);    // width (x), depth (z)
-const SIM_W = 256, SIM_H = Math.round(256 * W_SIZE.y / W_SIZE.x);
-
-// Uniforms shared by every patched material
-const U = {
-  uTime: { value: 0 },
-  uHeight: { value: null },
-  uWaterMin: { value: W_MIN },
-  uWaterSize: { value: W_SIZE },
-  uTexel: { value: new THREE.Vector2(1 / SIM_W, 1 / SIM_H) },
-  uGlowDir: { value: new THREE.Vector3(0.32, 0.1, -1).normalize() },
-  uGlowColor: { value: new THREE.Color(0x2f9ccc) },
-};
-
-// ---------------------------------------------------------------- tile textures (procedural)
-function tileTextures() {
-  const S = 1024, N = 4, T = S / N, G = 9; // 4x4 tiles per metre-square texture, grout px
-  const c = document.createElement('canvas'); c.width = c.height = S;
-  const x = c.getContext('2d');
-  const rough = document.createElement('canvas'); rough.width = rough.height = S;
-  const rx = rough.getContext('2d');
-  const heights = new Float32Array(S * S);
-
-  x.fillStyle = '#e7f1f4'; x.fillRect(0, 0, S, S);         // grout
-  rx.fillStyle = '#e0e0e0'; rx.fillRect(0, 0, S, S);       // grout is rough
-  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
-    const v = Math.random();
-    const l = 74 + v * 7, s = 26 + Math.random() * 10;
-    x.fillStyle = `hsl(${193 + Math.random() * 8}, ${s}%, ${l}%)`;
-    const px = i * T + G / 2, py = j * T + G / 2, w = T - G;
-    x.fillRect(px, py, w, w);
-    // faint glaze mottling
-    for (let k = 0; k < 6; k++) {
-      x.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '40,80,100'},${Math.random() * 0.05})`;
-      const r = 20 + Math.random() * 60;
-      x.beginPath(); x.arc(px + Math.random() * w, py + Math.random() * w, r, 0, Math.PI * 2); x.fill();
+// --------------------------------------------------------------------- ripple simulation (GPU heightfield)
+const simScene = new THREE.Scene();
+const simCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const simQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+simScene.add(simQuad);
+const quadVS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+const stepMat = new THREE.ShaderMaterial({
+  uniforms: { tex: { value: null }, delta: { value: new THREE.Vector2() } },
+  vertexShader: quadVS,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tex; uniform vec2 delta; varying vec2 vUv;
+    void main(){
+      vec4 info = texture2D(tex, vUv);
+      vec2 dx = vec2(delta.x, 0.0), dy = vec2(0.0, delta.y);
+      float avg = (texture2D(tex, vUv - dx).r + texture2D(tex, vUv + dx).r + texture2D(tex, vUv - dy).r + texture2D(tex, vUv + dy).r) * 0.25;
+      info.g += (avg - info.r) * 2.0;
+      info.g *= 0.985;
+      info.r += info.g;
+      info.r *= 0.998;
+      gl_FragColor = info;
+    }`,
+});
+const dropMat = new THREE.ShaderMaterial({
+  uniforms: { tex: { value: null }, center: { value: new THREE.Vector2() }, radius: { value: 0.3 }, strength: { value: 0.01 }, size: { value: new THREE.Vector2() } },
+  vertexShader: quadVS,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tex; uniform vec2 center, size; uniform float radius, strength; varying vec2 vUv;
+    void main(){
+      vec4 info = texture2D(tex, vUv);
+      float d = length((vUv - center) * size) / radius;
+      float drop = max(0.0, 1.0 - d);
+      drop = 0.5 - cos(drop * 3.14159265) * 0.5;
+      info.r -= drop * strength;
+      gl_FragColor = info;
+    }`,
+});
+class RippleSim {
+  constructor(min, size, w, h) {
+    this.min = min; this.size = size; this.texel = new THREE.Vector2(1 / w, 1 / h);
+    const rt = () => new THREE.WebGLRenderTarget(w, h, {
+      type: THREE.HalfFloatType, format: THREE.RGBAFormat, depthBuffer: false,
+      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+    });
+    this.a = rt(); this.b = rt(); this.drops = []; this.acc = 0;
+    this.height = { value: this.a.texture };
+  }
+  addDrop(wx, wz, radius, strength) {
+    const u = (wx - this.min.x) / this.size.x, v = (wz - this.min.y) / this.size.y;
+    if (u < 0 || u > 1 || v < 0 || v > 1) return;
+    if (this.drops.length < 12) this.drops.push([u, v, radius, strength]);
+  }
+  pass(mat) {
+    mat.uniforms.tex.value = this.a.texture;
+    simQuad.material = mat;
+    renderer.setRenderTarget(this.b);
+    renderer.render(simScene, simCam);
+    [this.a, this.b] = [this.b, this.a];
+  }
+  step() {
+    while (this.drops.length) {
+      const [u, v, r, s] = this.drops.shift();
+      dropMat.uniforms.center.value.set(u, v); dropMat.uniforms.radius.value = r;
+      dropMat.uniforms.strength.value = s; dropMat.uniforms.size.value.copy(this.size);
+      this.pass(dropMat);
     }
-    const g = 30 + Math.floor(Math.random() * 30);
-    rx.fillStyle = `rgb(${g},${g},${g})`; rx.fillRect(px, py, w, w);
+    stepMat.uniforms.delta.value.copy(this.texel);
+    this.pass(stepMat);
   }
-  // grime: soft vertical stains
-  for (let k = 0; k < 40; k++) {
-    const gx = Math.random() * S, gy = Math.random() * S, gh = 80 + Math.random() * 300;
-    const grad = x.createLinearGradient(0, gy, 0, gy + gh);
-    grad.addColorStop(0, 'rgba(30,60,70,0)'); grad.addColorStop(0.4, 'rgba(30,60,70,0.05)'); grad.addColorStop(1, 'rgba(30,60,70,0)');
-    x.fillStyle = grad; x.fillRect(gx, gy, 6 + Math.random() * 30, gh);
+  update(dt) {
+    this.acc += dt;
+    let n = 0;
+    while (this.acc >= 1 / 60 && n < 3) { this.step(); this.acc -= 1 / 60; n++; }
+    renderer.setRenderTarget(null);
+    this.height.value = this.a.texture;
   }
-
-  // height field for the normal map: tiles raised with a soft bevel
-  for (let py = 0; py < S; py++) for (let px = 0; px < S; px++) {
-    const u = (px % T), v = (py % T);
-    const d = Math.min(u, v, T - u, T - v) - G / 2;
-    heights[py * S + px] = d <= 0 ? 0 : Math.min(1, d / 7);
-  }
-  const nc = document.createElement('canvas'); nc.width = nc.height = S;
-  const nx = nc.getContext('2d'); const img = nx.createImageData(S, S);
-  for (let py = 0; py < S; py++) for (let px = 0; px < S; px++) {
-    const hL = heights[py * S + ((px - 1 + S) % S)], hR = heights[py * S + ((px + 1) % S)];
-    const hU = heights[((py - 1 + S) % S) * S + px], hD = heights[((py + 1) % S) * S + px];
-    let ax = (hL - hR) * 2.2, ay = (hU - hD) * 2.2, az = 1;
-    const len = Math.hypot(ax, ay, az); ax /= len; ay /= len; az /= len;
-    const o = (py * S + px) * 4;
-    img.data[o] = (ax * 0.5 + 0.5) * 255; img.data[o + 1] = (ay * 0.5 + 0.5) * 255; img.data[o + 2] = (az * 0.5 + 0.5) * 255; img.data[o + 3] = 255;
-  }
-  nx.putImageData(img, 0, 0);
-
-  const aniso = renderer.capabilities.getMaxAnisotropy();
-  const mk = (cv, srgb) => {
-    const t = new THREE.CanvasTexture(cv);
-    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = aniso;
-    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
-    return t;
-  };
-  return { map: mk(c, true), roughnessMap: mk(rough, false), normalMap: mk(nc, false) };
 }
-const TEX = tileTextures();
 
-// ---------------------------------------------------------------- material patch: caustics, ripples, glowing fog
-const CAUSTIC_GLSL = /* glsl */`
-  varying vec3 vWPos; varying vec3 vWNorm;
-  uniform float uTime, uCaust, uEmit, uFloor;
-  uniform sampler2D uHeight; uniform vec2 uWaterMin, uWaterSize, uTexel;
-  uniform vec3 uGlowDir, uGlowColor;
+// --------------------------------------------------------------------- shared GLSL
+const CAUSTIC_FUNCS = /* glsl */`
   // tileable water caustic (after Dave Hoskins)
   float causticLayer(vec2 uv, float t) {
     vec2 p = mod(uv * 6.28318, 6.28318) - 250.0;
@@ -253,77 +477,16 @@ const CAUSTIC_GLSL = /* glsl */`
     return c;
   }
 `;
+const WPOS_VERTEX = [
+  '#include <common>', '#include <common>\nvarying vec3 vWPos; varying vec3 vWNorm;',
+  '#include <worldpos_vertex>', `#include <worldpos_vertex>
+    vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+    vWNorm = normalize(mat3(modelMatrix) * objectNormal);`,
+];
+const withWorldPos = (vs) => vs.replace(WPOS_VERTEX[0], WPOS_VERTEX[1]).replace(WPOS_VERTEX[2], WPOS_VERTEX[3]);
 
-function patch(mat, { caust = 1, emit = 0, floor = 0 } = {}) {
-  mat.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, U);
-    sh.uniforms.uCaust = { value: caust };
-    sh.uniforms.uEmit = { value: emit };
-    sh.uniforms.uFloor = { value: floor };
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vWPos; varying vec3 vWNorm;')
-      .replace('#include <worldpos_vertex>', `#include <worldpos_vertex>
-        vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
-        vWNorm = normalize(mat3(modelMatrix) * objectNormal);`);
-    sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + CAUSTIC_GLSL)
-      .replace('#include <lights_fragment_begin>', `
-        vec3 cP = vWPos;
-        float ripple = 0.0;
-        if (uFloor > 0.5) {
-          vec2 wuv = (vWPos.xz - uWaterMin) / uWaterSize;
-          if (wuv.x > 0.0 && wuv.x < 1.0 && wuv.y > 0.0 && wuv.y < 1.0) {
-            float h  = texture2D(uHeight, wuv).r;
-            float hx = texture2D(uHeight, wuv + vec2(uTexel.x, 0.0)).r;
-            float hX = texture2D(uHeight, wuv - vec2(uTexel.x, 0.0)).r;
-            float hz = texture2D(uHeight, wuv + vec2(0.0, uTexel.y)).r;
-            float hZ = texture2D(uHeight, wuv - vec2(0.0, uTexel.y)).r;
-            vec2 grad = vec2(hx - hX, hz - hZ);
-            cP.xz += grad * 22.0;                          // ripples bend the light pattern
-            ripple = clamp(-(hx + hX + hz + hZ - 4.0 * h) * 900.0, -0.7, 3.5); // and focus it
-          }
-        }
-        float cRaw = caustics(cP, normalize(vWNorm), uTime * 0.55);
-        float cTerm = 0.12 + uCaust * cRaw * 3.2 + ripple * 0.9;
-        vec3 rippleGlow = vec3(0.35, 0.75, 1.0) * max(ripple, 0.0) * 0.16;
-        ` + THREE.ShaderChunk.lights_fragment_begin.replaceAll(
-          'RE_Direct( directLight,',
-          'directLight.color *= max(cTerm, 0.0);\n\t\tRE_Direct( directLight,'))
-      .replace('#include <aomap_fragment>', `#include <aomap_fragment>
-        totalEmissiveRadiance += rippleGlow;`)
-      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-        if (uEmit > 0.0) {
-          float ce = caustics(vWPos, normalize(vWNorm), uTime * 0.55);
-          totalEmissiveRadiance += vec3(0.45, 0.85, 1.0) * ce * uEmit;
-        }`)
-      .replace('#include <fog_fragment>', `
-        #ifdef USE_FOG
-          vec3 vdir = normalize(vWPos - cameraPosition);
-          float g = pow(max(dot(vdir, uGlowDir), 0.0), 6.0);
-          float dist = length(vWPos - cameraPosition);
-          float fogF = 1.0 - exp(-fogDensity * fogDensity * dist * dist);
-          vec3 fc = mix(fogColor, uGlowColor, g);
-          fc += uGlowColor * 0.25 * smoothstep(0.0, 9.0, vWPos.y) * g;
-          gl_FragColor.rgb = mix(gl_FragColor.rgb, fc, fogF);
-        #endif`);
-  };
-  mat.customProgramCacheKey = () => `pool-${caust}-${emit}-${floor}`;
-  return mat;
-}
-
-const tileProps = { map: TEX.map, roughnessMap: TEX.roughnessMap, normalMap: TEX.normalMap, normalScale: new THREE.Vector2(0.7, 0.7), roughness: 1, metalness: 0 };
-const wallMat = patch(new THREE.MeshStandardMaterial({ ...tileProps }), { caust: 1 });
-const dimWallMat = patch(new THREE.MeshStandardMaterial({ ...tileProps, color: 0x9fb4bd }), { caust: 0.6 });
-const floorMat = patch(new THREE.MeshStandardMaterial({ ...tileProps }), { caust: 0.85, floor: 1 });
-const glowWallMat = patch(new THREE.MeshStandardMaterial({ ...tileProps, emissive: 0x1d6f95, emissiveMap: TEX.map, emissiveIntensity: 1.25 }), { caust: 1, emit: 2.4 });
-const ledgeMat = patch(new THREE.MeshStandardMaterial({ ...tileProps, emissive: 0x0f4a66, emissiveMap: TEX.map, emissiveIntensity: 0.55 }), { caust: 1.1 });
-const woodMat = patch(new THREE.MeshStandardMaterial({ color: 0xb59a52, roughness: 0.55 }), { caust: 0.7 });
-const legMat = patch(new THREE.MeshStandardMaterial({ color: 0x24333b, roughness: 0.45, metalness: 0.6 }), { caust: 0.4 });
-const ceilMat = patch(new THREE.MeshStandardMaterial({ color: 0x0b1e28, roughness: 1 }), { caust: 0.3 });
-
-// ---------------------------------------------------------------- geometry helpers
-// Box from min/max corners with UVs scaled so one texture repeat = 1 metre on every face.
-function box([x0, x1], [y0, y1], [z0, z1], mat, { cast = true, receive = true } = {}) {
+// Box from min/max corners; UVs scaled so one texture repeat = 1 metre on every face.
+function box(scene, [x0, x1], [y0, y1], [z0, z1], mat, { cast = true, receive = true } = {}) {
   const w = x1 - x0, h = y1 - y0, d = z1 - z0;
   const g = new THREE.BoxGeometry(w, h, d);
   const uv = g.attributes.uv;
@@ -338,36 +501,354 @@ function box([x0, x1], [y0, y1], [z0, z1], mat, { cast = true, receive = true } 
   scene.add(m);
   return m;
 }
+const boxAt = (scene, cx, cy, cz, sx, sy, sz, mat, opts) => box(scene, [cx - sx / 2, cx + sx / 2], [cy - sy / 2, cy + sy / 2], [cz - sz / 2, cz + sz / 2], mat, opts);
 
-// ---------------------------------------------------------------- the room
+function canvasTex(cv, { srgb = true, repeat = 1 } = {}) {
+  const t = new THREE.CanvasTexture(cv);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  t.repeat.set(repeat, repeat);
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// --------------------------------------------------------------------- water surface shader (planar reflection + ripples)
+function makeWater(scene, sim, y, o) {
+  const shader = {
+    name: 'Water',
+    uniforms: {
+      color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null },
+      uHeight: { value: null }, uMin: { value: sim.min }, uSize: { value: sim.size }, uTexel: { value: sim.texel },
+      uTime: { value: 0 }, uFogColor: { value: o.fogColor }, uFogDensity: { value: o.fogDensity },
+      uGlowDir: { value: o.glowDir }, uGlowColor: { value: o.glowColor }, uTint: { value: o.tint },
+      uDeep: { value: o.deep }, uReflMix: { value: o.reflMix }, uAlpha: { value: o.alpha },
+      uShimmer: { value: o.shimmer }, uNormal: { value: o.normal }, uLight: { value: o.lightDir },
+    },
+    vertexShader: /* glsl */`
+      uniform mat4 textureMatrix; varying vec4 vUv; varying vec3 vWPos;
+      #include <common>
+      void main(){
+        vUv = textureMatrix * vec4(position, 1.0);
+        vWPos = (modelMatrix * vec4(position, 1.0)).xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: /* glsl */`
+      uniform vec3 color; uniform sampler2D tDiffuse; uniform sampler2D uHeight;
+      uniform vec2 uMin, uSize, uTexel, uAlpha; uniform float uTime, uFogDensity, uReflMix, uShimmer, uNormal;
+      uniform vec3 uFogColor, uGlowDir, uGlowColor, uTint, uDeep, uLight;
+      varying vec4 vUv; varying vec3 vWPos;
+      #include <common>
+      void main(){
+        vec2 wuv = (vWPos.xz - uMin) / uSize;
+        float hx = texture2D(uHeight, wuv + vec2(uTexel.x, 0.0)).r;
+        float hX = texture2D(uHeight, wuv - vec2(uTexel.x, 0.0)).r;
+        float hz = texture2D(uHeight, wuv + vec2(0.0, uTexel.y)).r;
+        float hZ = texture2D(uHeight, wuv - vec2(0.0, uTexel.y)).r;
+        vec2 sh = vec2(sin(vWPos.x * 9.0 + uTime * 1.3) + sin(vWPos.z * 7.0 - uTime * 1.1 + vWPos.x * 2.0),
+                       cos(vWPos.z * 8.0 + uTime * 1.2) + sin(vWPos.x * 6.0 + vWPos.z * 3.0 + uTime)) * uShimmer;
+        vec3 n = normalize(vec3((hX - hx) * uNormal + sh.x, 1.0, (hZ - hz) * uNormal + sh.y));
+
+        vec3 V = normalize(cameraPosition - vWPos);
+        float fres = 0.04 + 0.96 * pow(1.0 - max(dot(n, V), 0.0), 5.0);
+        vec2 ruv = vUv.xy / vUv.w + n.xz * 0.11;
+        vec3 refl = texture2D(tDiffuse, ruv).rgb * uTint;
+        float spec = pow(max(dot(reflect(-V, n), normalize(uLight)), 0.0), 180.0) * 2.5;
+        float tilt = length(n.xz - sh);
+        float sheen = smoothstep(0.004, 0.1, tilt);
+
+        vec3 col = mix(uDeep, refl, uReflMix + (1.0 - uReflMix) * fres) + vec3(0.6, 0.9, 1.0) * spec + vec3(0.35, 0.7, 1.0) * sheen * 0.32 * uTint;
+        float a = clamp(mix(uAlpha.x, uAlpha.y, fres), 0.0, 1.0);
+        a = max(a, sheen * 0.45);
+
+        float dist = length(vWPos - cameraPosition);
+        float fogF = 1.0 - exp(-uFogDensity * uFogDensity * dist * dist);
+        float g = pow(max(dot(-V, uGlowDir), 0.0), 6.0);
+        col = mix(col, mix(uFogColor, uGlowColor, g), fogF);
+        gl_FragColor = vec4(col, a);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+  };
+  const water = new Reflector(new THREE.PlaneGeometry(sim.size.x, sim.size.y), {
+    shader, clipBias: 0.003, multisample: 0, color: 0xffffff,
+    textureWidth: Math.round(innerWidth * renderer.getPixelRatio() * REFL_SCALE),
+    textureHeight: Math.round(innerHeight * renderer.getPixelRatio() * REFL_SCALE),
+  });
+  water.rotation.x = -Math.PI / 2;
+  water.position.set(sim.min.x + sim.size.x / 2, y, sim.min.y + sim.size.y / 2);
+  water.material.uniforms.uHeight = sim.height;
+  water.material.uniforms.uTime = U.uTime;
+  water.material.transparent = true;
+  water.material.depthWrite = false;
+  water.renderOrder = 1;
+  scene.add(water);
+  return water;
+}
+const REFL_SCALE = isMobile ? 0.4 : 0.6;
+
+// --------------------------------------------------------------------- drifting motes
+function makeMotes(scene, count, box3, color, size) {
+  const mp = new Float32Array(count * 3), ms = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    mp[i * 3] = box3.min.x + Math.random() * (box3.max.x - box3.min.x);
+    mp[i * 3 + 1] = Math.random() * (box3.max.y - box3.min.y);
+    mp[i * 3 + 2] = box3.min.z + Math.random() * (box3.max.z - box3.min.z);
+    ms[i] = Math.random();
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(mp, 3));
+  g.setAttribute('seed', new THREE.BufferAttribute(ms, 1));
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uTime: U.uTime, uScale: MOTE_SCALE, uColor: { value: color }, uY0: { value: box3.min.y }, uH: { value: box3.max.y - box3.min.y }, uSize: { value: size } },
+    vertexShader: /* glsl */`
+      attribute float seed; uniform float uTime, uScale, uY0, uH, uSize; varying float vA;
+      void main(){
+        vec3 p = position;
+        p.y = uY0 + mod(p.y + uTime * (0.05 + seed * 0.12), uH);
+        p.x += sin(uTime * 0.3 + seed * 30.0) * 0.25;
+        p.z += cos(uTime * 0.25 + seed * 20.0) * 0.25;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = uScale * (0.012 + seed * 0.02) * uSize / -mv.z;
+        vA = (0.25 + 0.75 * seed) * smoothstep(30.0, 3.0, -mv.z) * (0.5 + 0.5 * sin(uTime * (1.0 + seed * 2.0) + seed * 40.0));
+      }`,
+    fragmentShader: /* glsl */`
+      uniform vec3 uColor; varying float vA;
+      void main(){ float d = length(gl_PointCoord - 0.5); gl_FragColor = vec4(uColor * smoothstep(0.5, 0.0, d) * vA * 0.9, 1.0); }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  });
+  const pts = new THREE.Points(g, mat);
+  pts.frustumCulled = false;
+  scene.add(pts);
+  return pts;
+}
+const MOTE_SCALE = { value: innerHeight * renderer.getPixelRatio() * 0.5 };
+
+// =====================================================================================
+// SCENE 1 — the pool hall
+// =====================================================================================
+const pool = new THREE.Scene();
+const FOG = new THREE.Color(0x0a3149);
+pool.background = FOG.clone();
+pool.fog = new THREE.FogExp2(FOG, 0.042);
+
+const P_WATER_Y = 0.035;
+const poolSim = new RippleSim(new THREE.Vector2(-4.6, -27.5), new THREE.Vector2(7.2, 36.5), 128, 649);
+const PU = {
+  uTime: U.uTime, uHeight: poolSim.height,
+  uWaterMin: { value: poolSim.min }, uWaterSize: { value: poolSim.size }, uTexel: { value: poolSim.texel },
+  uGlowDir: { value: new V3(0.3, 0.12, -0.95).normalize() },
+  uGlowColor: { value: new THREE.Color(0x2f9ccc) },
+};
+
+function tileTextures() {
+  const S = 1024, N = 4, T = S / N, G = 9;
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const x = c.getContext('2d');
+  const rough = document.createElement('canvas'); rough.width = rough.height = S;
+  const rx = rough.getContext('2d');
+  x.fillStyle = '#e7f1f4'; x.fillRect(0, 0, S, S);
+  rx.fillStyle = '#e0e0e0'; rx.fillRect(0, 0, S, S);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    x.fillStyle = `hsl(${193 + Math.random() * 8}, ${26 + Math.random() * 10}%, ${74 + Math.random() * 7}%)`;
+    const px = i * T + G / 2, py = j * T + G / 2, w = T - G;
+    x.fillRect(px, py, w, w);
+    for (let k = 0; k < 6; k++) {
+      x.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '40,80,100'},${Math.random() * 0.05})`;
+      x.beginPath(); x.arc(px + Math.random() * w, py + Math.random() * w, 20 + Math.random() * 60, 0, Math.PI * 2); x.fill();
+    }
+    const g = 30 + Math.floor(Math.random() * 30);
+    rx.fillStyle = `rgb(${g},${g},${g})`; rx.fillRect(px, py, w, w);
+  }
+  for (let k = 0; k < 40; k++) {
+    const gx = Math.random() * S, gy = Math.random() * S, gh = 80 + Math.random() * 300;
+    const grad = x.createLinearGradient(0, gy, 0, gy + gh);
+    grad.addColorStop(0, 'rgba(30,60,70,0)'); grad.addColorStop(0.4, 'rgba(30,60,70,0.05)'); grad.addColorStop(1, 'rgba(30,60,70,0)');
+    x.fillStyle = grad; x.fillRect(gx, gy, 6 + Math.random() * 30, gh);
+  }
+  const heights = new Float32Array(S * S);
+  for (let py = 0; py < S; py++) for (let px = 0; px < S; px++) {
+    const u = px % T, v = py % T;
+    const d = Math.min(u, v, T - u, T - v) - G / 2;
+    heights[py * S + px] = d <= 0 ? 0 : Math.min(1, d / 7);
+  }
+  const nc = document.createElement('canvas'); nc.width = nc.height = S;
+  const nx = nc.getContext('2d'); const img = nx.createImageData(S, S);
+  for (let py = 0; py < S; py++) for (let px = 0; px < S; px++) {
+    const hL = heights[py * S + ((px - 1 + S) % S)], hR = heights[py * S + ((px + 1) % S)];
+    const hU = heights[((py - 1 + S) % S) * S + px], hD = heights[((py + 1) % S) * S + px];
+    let ax = (hL - hR) * 2.2, ay = (hU - hD) * 2.2, az = 1;
+    const len = Math.hypot(ax, ay, az);
+    const o = (py * S + px) * 4;
+    img.data[o] = (ax / len * 0.5 + 0.5) * 255; img.data[o + 1] = (ay / len * 0.5 + 0.5) * 255; img.data[o + 2] = (az / len * 0.5 + 0.5) * 255; img.data[o + 3] = 255;
+  }
+  nx.putImageData(img, 0, 0);
+  return { map: canvasTex(c), roughnessMap: canvasTex(rough, { srgb: false }), normalMap: canvasTex(nc, { srgb: false }) };
+}
+const TEX = tileTextures();
+
+// caustics as the sun's light, ripples that focus it, and fog that glows toward the tank
+function patchPool(mat, { caust = 1, emit = 0, floor = 0 } = {}) {
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, PU);
+    sh.uniforms.uCaust = { value: caust }; sh.uniforms.uEmit = { value: emit }; sh.uniforms.uFloor = { value: floor };
+    sh.vertexShader = withWorldPos(sh.vertexShader);
+    const lights = THREE.ShaderChunk.lights_fragment_begin;
+    const key = 'RE_Direct( directLight,';
+    const at = lights.lastIndexOf(key); // only the directional-light loop carries caustics
+    const patchedLights = lights.slice(0, at) + 'directLight.color *= max(cTerm, 0.0);\n\t\t' + lights.slice(at);
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+        varying vec3 vWPos; varying vec3 vWNorm;
+        uniform float uTime, uCaust, uEmit, uFloor;
+        uniform sampler2D uHeight; uniform vec2 uWaterMin, uWaterSize, uTexel;
+        uniform vec3 uGlowDir, uGlowColor;
+        ${CAUSTIC_FUNCS}`)
+      .replace('#include <lights_fragment_begin>', `
+        vec3 cP = vWPos;
+        float ripple = 0.0;
+        if (uFloor > 0.5) {
+          vec2 wuv = (vWPos.xz - uWaterMin) / uWaterSize;
+          if (wuv.x > 0.0 && wuv.x < 1.0 && wuv.y > 0.0 && wuv.y < 1.0) {
+            float h  = texture2D(uHeight, wuv).r;
+            float hx = texture2D(uHeight, wuv + vec2(uTexel.x, 0.0)).r;
+            float hX = texture2D(uHeight, wuv - vec2(uTexel.x, 0.0)).r;
+            float hz = texture2D(uHeight, wuv + vec2(0.0, uTexel.y)).r;
+            float hZ = texture2D(uHeight, wuv - vec2(0.0, uTexel.y)).r;
+            cP.xz += vec2(hx - hX, hz - hZ) * 22.0;
+            ripple = clamp(-(hx + hX + hz + hZ - 4.0 * h) * 900.0, -0.7, 3.5);
+          }
+        }
+        float cTerm = 0.12 + uCaust * caustics(cP, normalize(vWNorm), uTime * 0.55) * 3.2 + ripple * 0.9;
+        vec3 rippleGlow = vec3(0.35, 0.75, 1.0) * max(ripple, 0.0) * 0.16;
+        ${patchedLights}`)
+      .replace('#include <aomap_fragment>', `#include <aomap_fragment>
+        totalEmissiveRadiance += rippleGlow;`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        if (uEmit > 0.0) totalEmissiveRadiance += vec3(0.45, 0.85, 1.0) * caustics(vWPos, normalize(vWNorm), uTime * 0.55) * uEmit;`)
+      .replace('#include <fog_fragment>', `
+        #ifdef USE_FOG
+          vec3 vdir = normalize(vWPos - cameraPosition);
+          float g = pow(max(dot(vdir, uGlowDir), 0.0), 6.0);
+          float dist = length(vWPos - cameraPosition);
+          float fogF = 1.0 - exp(-fogDensity * fogDensity * dist * dist);
+          vec3 fc = mix(fogColor, uGlowColor, g) + uGlowColor * 0.25 * smoothstep(0.0, 9.0, vWPos.y) * g;
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, fc, fogF);
+        #endif`);
+  };
+  mat.customProgramCacheKey = () => `pool-${caust}-${emit}-${floor}`;
+  return mat;
+}
+
+const tileProps = { map: TEX.map, roughnessMap: TEX.roughnessMap, normalMap: TEX.normalMap, normalScale: new THREE.Vector2(0.7, 0.7), roughness: 1, metalness: 0 };
+const wallMat = patchPool(new THREE.MeshStandardMaterial({ ...tileProps }), { caust: 1 });
+const dimWallMat = patchPool(new THREE.MeshStandardMaterial({ ...tileProps, color: 0x9fb4bd }), { caust: 0.6 });
+const floorMat = patchPool(new THREE.MeshStandardMaterial({ ...tileProps }), { caust: 0.85, floor: 1 });
+const curbMat = patchPool(new THREE.MeshStandardMaterial({ ...tileProps, emissive: 0x0f4a66, emissiveMap: TEX.map, emissiveIntensity: 0.6 }), { caust: 1.1 });
+const woodMat = patchPool(new THREE.MeshStandardMaterial({ color: 0xb59a52, roughness: 0.55 }), { caust: 0.7 });
+const legMat = patchPool(new THREE.MeshStandardMaterial({ color: 0x24333b, roughness: 0.45, metalness: 0.6 }), { caust: 0.4 });
+const ceilMat = patchPool(new THREE.MeshStandardMaterial({ color: 0x0b1e28, roughness: 1 }), { caust: 0.3 });
+
 const H = 15;
-// floor (sits just under the water film)
-box([-14, 14], [-0.4, 0], [-30, 12], floorMat, { cast: false });
-// ceiling
-box([-14, 14], [H, H + 0.4], [-30, 12], ceilMat, { cast: false, receive: false });
+box(pool, [-14, 14], [-0.4, 0], [-30, 12], floorMat, { cast: false });
+box(pool, [-14, 14], [H, H + 0.4], [-30, 12], ceilMat, { cast: false, receive: false });
+// left: foreground pillar, tiered tile seating, recessed wall
+box(pool, [-8, -4.6], [0, H], [-6.5, 9], wallMat);
+box(pool, [-4.6, -3.55], [0, 0.42], [-16, 9], wallMat);
+box(pool, [-4.6, -4.1], [0.42, 0.84], [-16, 9], wallMat);
+box(pool, [-10, -7.2], [0, H], [-30, -6.5], dimWallMat);
+box(pool, [-7.2, -4.6], [0, 1.26], [-16, -6.5], wallMat);
+// centre monolith and the back wall
+box(pool, [-4.3, -0.4], [0, H], [-24, -17.5], dimWallMat);
+box(pool, [-10, 2.6], [0, H], [-30, -27.5], dimWallMat, { cast: false });
+// right: foreground pillar, then the aquarium behind glass
+box(pool, [2.3, 8], [0, H], [4.5, 9], dimWallMat);
+box(pool, [2.3, 2.62], [0, 0.35], [-27.5, 4.5], curbMat);
+box(pool, [2.6, 14], [11.5, H], [-27.5, 4.5], dimWallMat, { cast: false });
+box(pool, [8, 14], [0, H], [4.5, 12], dimWallMat);
+box(pool, [-14, -8], [0, H], [-6.5, 12], dimWallMat);
+box(pool, [-14, 14], [0, H], [11, 12], dimWallMat, { cast: false });
+for (const zc of [-1.5, -7.5, -13.5, -19.5]) box(pool, [2.56, 2.66], [0.35, 11.5], [zc - 0.035, zc + 0.035], legMat, { cast: false });
+box(pool, [2.5, 2.7], [11.38, 11.6], [-27.5, 4.5], legMat, { cast: false });
+box(pool, [2.5, 2.68], [0.3, 0.4], [-27.5, 4.5], legMat, { cast: false });
 
-// left: big foreground pillar, tiered tile seating, recessed dark wall behind
-box([-8, -4.6], [0, H], [-6.5, 9], wallMat);
-box([-4.6, -3.55], [0, 0.42], [-16, 9], wallMat);          // step 1
-box([-4.6, -4.1], [0.42, 0.84], [-16, 9], wallMat);        // step 2
-box([-10, -7.2], [0, H], [-30, -6.5], dimWallMat);         // recessed wall
-box([-7.2, -4.6], [0, 1.26], [-16, -6.5], wallMat);        // step 3 continues into the recess
+// The glass: one plane whose shader looks into a box of water (refraction, absorption, caustics, light shafts).
+const TANK_MIN = new V3(2.62, 0.35, -27.5), TANK_MAX = new V3(13, 11.5, 4.5);
+const glassMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uTime: U.uTime, uMin: { value: TANK_MIN }, uMax: { value: TANK_MAX }, uTile: { value: TEX.map },
+    uFog: { value: FOG }, uFogD: { value: 0.042 },
+  },
+  vertexShader: /* glsl */`varying vec3 vWPos; void main(){ vWPos = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vWPos, 1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform float uTime, uFogD; uniform vec3 uMin, uMax, uFog; uniform sampler2D uTile;
+    varying vec3 vWPos;
+    ${CAUSTIC_FUNCS}
+    void main(){
+      vec3 V = normalize(vWPos - cameraPosition);
+      vec3 N = vec3(-1.0, 0.0, 0.0);
+      vec3 rd = refract(V, N, 0.75);
+      vec3 ro = vWPos + rd * 0.02;
+      vec3 inv = 1.0 / rd;
+      vec3 tm = max((uMin - ro) * inv, (uMax - ro) * inv);
+      float tf = min(min(tm.x, tm.y), tm.z);
+      vec3 p = ro + rd * tf;
+      float t = uTime * 0.55;
+      vec3 col;
+      if (tm.y <= tm.x && tm.y <= tm.z && rd.y > 0.0) {
+        float c = caustic2(p.xz * 0.22, t * 1.3);
+        col = vec3(0.25, 0.7, 0.95) * (1.1 + 3.5 * c);           // the underside of the water surface
+      } else {
+        vec3 n; vec2 uv;
+        if (tm.x <= tm.z && tm.x <= tm.y) { n = vec3(-1.0, 0.0, 0.0); uv = p.zy; }
+        else if (tm.z <= tm.y) { n = vec3(0.0, 0.0, -sign(rd.z)); uv = p.xy; }
+        else { n = vec3(0.0, 1.0, 0.0); uv = p.xz; }
+        vec3 tile = texture2D(uTile, uv).rgb;
+        float c = caustics(p, n, t);
+        float lift = mix(0.4, 1.0, smoothstep(0.0, 11.0, p.y));
+        col = tile * vec3(0.3, 0.68, 0.9) * (0.35 + 3.4 * c) * lift;
+      }
+      vec3 T = exp(-tf * vec3(0.16, 0.055, 0.035));
+      vec3 inscat = vec3(0.1, 0.46, 0.68) * mix(0.55, 1.35, smoothstep(0.0, 11.0, vWPos.y));
+      col = col * T + inscat * (1.0 - T);
+      float shaft = 0.0;
+      for (int i = 1; i <= 10; i++) {
+        float s = tf * (float(i) / 10.5);
+        vec3 q = ro + rd * s;
+        float w = sin(q.x * 1.7 + q.z * 0.6 + sin(q.z * 0.8 + t * 0.6) * 1.5) * sin(q.z * 1.1 - q.x * 0.4 + t * 0.35);
+        shaft += pow(max(w, 0.0), 6.0) * smoothstep(0.0, 11.0, q.y) * exp(-s * 0.09);
+      }
+      col += vec3(0.35, 0.8, 1.0) * shaft * 0.12;
+      // bubbles rising in a few columns
+      for (int k = 0; k < 3; k++) {
+        float fk = float(k);
+        float bz = -3.0 - fk * 6.3;
+        float bx = 4.2 + fk * 1.7;
+        float tb = (bx - ro.x) / max(rd.x, 0.001);
+        vec3 bp = ro + rd * tb;
+        float lane = abs(bp.z - bz) < 0.35 ? 1.0 : 0.0;
+        float yy = fract(bp.y * 0.9 - uTime * (0.35 + fk * 0.1));
+        float dz = (bp.z - bz) + sin(bp.y * 2.0 + uTime + fk) * 0.08;
+        float bub = smoothstep(0.06, 0.02, length(vec2(dz * 2.2, (yy - 0.5) * 1.1))) * lane;
+        col += vec3(0.6, 0.9, 1.0) * bub * 0.5 * exp(-tb * 0.08);
+      }
+      // the glass itself: sheen at grazing angles, faint vertical smears
+      float fres = 0.04 + 0.96 * pow(1.0 - abs(dot(V, N)), 5.0);
+      col = mix(col, vec3(0.32, 0.55, 0.62), fres * 0.55);
+      col += smoothstep(0.93, 1.0, sin(vWPos.z * 0.8 + vWPos.y * 0.12) * 0.5 + 0.5) * 0.035;
+      float dist = length(vWPos - cameraPosition);
+      col = mix(col, uFog, (1.0 - exp(-uFogD * uFogD * dist * dist)) * 0.45);
+      gl_FragColor = vec4(col, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+});
+const glass = new THREE.Mesh(new THREE.PlaneGeometry(TANK_MAX.z - TANK_MIN.z, TANK_MAX.y - TANK_MIN.y), glassMat);
+glass.rotation.y = -Math.PI / 2;
+glass.position.set(TANK_MIN.x, (TANK_MIN.y + TANK_MAX.y) / 2, (TANK_MIN.z + TANK_MAX.z) / 2);
+pool.add(glass);
 
-// centre: the dark monolith pillar
-box([-4.3, -0.4], [0, H], [-24, -17.5], dimWallMat);
-
-// back: the bright wall full of light
-box([-4.3, 14], [0, H], [-30, -27.5], glowWallMat, { cast: false });
-
-// right: foreground pillar and the raised, lit platform behind it
-box([4.2, 8], [0, H], [-7.5, 9], dimWallMat);
-box([2.6, 14], [0, 0.32], [-27.5, -7.5], ledgeMat);        // platform
-box([2.35, 2.6], [0, 0.22], [-27.5, -7.5], ledgeMat);      // curb lip
-box([8, 14], [0, H], [-7.5, 12], dimWallMat);              // side wall closing the right
-box([-14, -8], [0, H], [-6.5, 12], dimWallMat);            // side wall closing the left
-box([-14, 14], [0, H], [11, 12], dimWallMat, { cast: false }); // wall behind camera
-
-// benches: slatted tops on dark legs, in a loose line toward the light
+// benches
 function bench(x, z, rot) {
   const g = new THREE.Group();
   const add = (geo, mat, px, py, pz) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); m.castShadow = m.receiveShadow = true; g.add(m); };
@@ -377,184 +858,54 @@ function bench(x, z, rot) {
   add(new THREE.BoxGeometry(0.46, 0.04, 0.05), legMat, 0, 0.42, -0.72);
   add(new THREE.BoxGeometry(0.46, 0.04, 0.05), legMat, 0, 0.42, 0.72);
   g.position.set(x, 0, z); g.rotation.y = rot;
-  scene.add(g);
+  pool.add(g);
 }
-bench(-1.55, -2.4, 0.12);
-bench(-1.95, -5.6, 0.08);
-bench(-2.3, -8.7, 0.15);
-bench(-2.6, -11.6, 0.05);
+bench(-1.55, -2.4, 0.12); bench(-1.95, -5.6, 0.08); bench(-2.3, -8.7, 0.15); bench(-2.6, -11.6, 0.05);
 
-// ---------------------------------------------------------------- light
-scene.add(new THREE.HemisphereLight(0x4a93bd, 0x0b2836, 1.35));
+// light
+pool.add(new THREE.HemisphereLight(0x4a93bd, 0x0b2836, 1.35));
 const sun = new THREE.DirectionalLight(0xb4e8ff, 4.6);
-sun.position.set(7, 22, -15);
-sun.target.position.set(-1.5, 0, -4);
-scene.add(sun, sun.target);
+sun.position.set(7, 22, -15); sun.target.position.set(-1.5, 0, -4);
+pool.add(sun, sun.target);
 sun.castShadow = true;
 sun.shadow.mapSize.set(isMobile ? 1024 : 2048, isMobile ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 60 });
 sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03; sun.shadow.radius = 4;
+for (const z of [-2, -11, -19]) { const l = new THREE.PointLight(0x5ccfff, 18, 14, 2); l.position.set(1.8, 1.4, z); pool.add(l); }
 
-// ---------------------------------------------------------------- ripple simulation (GPU heightfield)
-const simRT = () => new THREE.WebGLRenderTarget(SIM_W, SIM_H, {
-  type: THREE.HalfFloatType, format: THREE.RGBAFormat, depthBuffer: false,
-  minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
-  wrapS: THREE.ClampToEdgeWrapping, wrapT: THREE.ClampToEdgeWrapping,
+const poolWater = makeWater(pool, poolSim, P_WATER_Y, {
+  fogColor: FOG, fogDensity: 0.042, glowDir: PU.uGlowDir.value, glowColor: PU.uGlowColor.value,
+  tint: new V3(0.8, 0.95, 1.0), deep: new V3(0.02, 0.08, 0.12), reflMix: 1, alpha: new THREE.Vector2(0.16, 0.85),
+  shimmer: 0.0045, normal: 42, lightDir: new V3(0.42, 0.75, -0.52),
 });
-let simA = simRT(), simB = simRT();
-const simScene = new THREE.Scene();
-const simCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-const simQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
-simScene.add(simQuad);
-const quadVS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
-const stepMat = new THREE.ShaderMaterial({
-  uniforms: { tex: { value: null }, delta: { value: U.uTexel.value } },
-  vertexShader: quadVS,
-  fragmentShader: /* glsl */`
-    uniform sampler2D tex; uniform vec2 delta; varying vec2 vUv;
-    void main(){
-      vec4 info = texture2D(tex, vUv);
-      vec2 dx = vec2(delta.x, 0.0), dy = vec2(0.0, delta.y);
-      float avg = (texture2D(tex, vUv - dx).r + texture2D(tex, vUv + dx).r + texture2D(tex, vUv - dy).r + texture2D(tex, vUv + dy).r) * 0.25;
-      info.g += (avg - info.r) * 2.0;
-      info.g *= 0.985;
-      info.r += info.g;
-      info.r *= 0.998;
-      gl_FragColor = info;
-    }`,
-});
-const dropMat = new THREE.ShaderMaterial({
-  uniforms: { tex: { value: null }, center: { value: new THREE.Vector2() }, radius: { value: 0.3 }, strength: { value: 0.01 }, size: { value: W_SIZE } },
-  vertexShader: quadVS,
-  fragmentShader: /* glsl */`
-    uniform sampler2D tex; uniform vec2 center, size; uniform float radius, strength; varying vec2 vUv;
-    void main(){
-      vec4 info = texture2D(tex, vUv);
-      float d = length((vUv - center) * size) / radius;
-      float drop = max(0.0, 1.0 - d);
-      drop = 0.5 - cos(drop * 3.14159265) * 0.5;
-      info.r -= drop * strength;
-      gl_FragColor = info;
-    }`,
-});
-function simPass(mat) {
-  mat.uniforms.tex.value = simA.texture;
-  simQuad.material = mat;
-  renderer.setRenderTarget(simB);
-  renderer.render(simScene, simCam);
-  [simA, simB] = [simB, simA];
-}
-const drops = [];
-function addDrop(wx, wz, radius, strength) {
-  const u = (wx - W_MIN.x) / W_SIZE.x, v = (wz - W_MIN.y) / W_SIZE.y;
-  if (u < 0 || u > 1 || v < 0 || v > 1) return;
-  if (drops.length < 12) drops.push([u, v, radius, strength]);
-}
 
-// ---------------------------------------------------------------- water surface (planar reflection + ripples)
-const waterShader = {
-  name: 'PoolWater',
-  uniforms: {
-    color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null },
-    uHeight: { value: null }, uWaterMin: { value: null }, uWaterSize: { value: null }, uTexel: { value: null },
-    uTime: { value: 0 }, uFogColor: { value: FOG }, uFogDensity: { value: 0.042 },
-    uGlowDir: { value: null }, uGlowColor: { value: null },
-  },
-  vertexShader: /* glsl */`
-    uniform mat4 textureMatrix;
-    varying vec4 vUv; varying vec3 vWPos;
-    #include <common>
-    void main(){
-      vUv = textureMatrix * vec4(position, 1.0);
-      vWPos = (modelMatrix * vec4(position, 1.0)).xyz;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }`,
-  fragmentShader: /* glsl */`
-    uniform vec3 color; uniform sampler2D tDiffuse; uniform sampler2D uHeight;
-    uniform vec2 uWaterMin, uWaterSize, uTexel; uniform float uTime;
-    uniform vec3 uFogColor, uGlowDir, uGlowColor; uniform float uFogDensity;
-    varying vec4 vUv; varying vec3 vWPos;
-    #include <common>
-    void main(){
-      vec2 wuv = (vWPos.xz - uWaterMin) / uWaterSize;
-      float hx = texture2D(uHeight, wuv + vec2(uTexel.x, 0.0)).r;
-      float hX = texture2D(uHeight, wuv - vec2(uTexel.x, 0.0)).r;
-      float hz = texture2D(uHeight, wuv + vec2(0.0, uTexel.y)).r;
-      float hZ = texture2D(uHeight, wuv - vec2(0.0, uTexel.y)).r;
-      // fine standing shimmer so the film never looks frozen
-      vec2 sh = vec2(sin(vWPos.x * 9.0 + uTime * 1.3) + sin(vWPos.z * 7.0 - uTime * 1.1 + vWPos.x * 2.0),
-                     cos(vWPos.z * 8.0 + uTime * 1.2) + sin(vWPos.x * 6.0 + vWPos.z * 3.0 + uTime)) * 0.0045;
-      vec3 n = normalize(vec3((hX - hx) * 42.0 + sh.x, 1.0, (hZ - hz) * 42.0 + sh.y));
-
-      vec3 V = normalize(cameraPosition - vWPos);
-      float fres = 0.04 + 0.96 * pow(1.0 - max(dot(n, V), 0.0), 5.0);
-      vec2 ruv = vUv.xy / vUv.w + n.xz * 0.11;
-      vec3 refl = texture2D(tDiffuse, ruv).rgb * vec3(0.8, 0.95, 1.0);
-
-      vec3 L = normalize(vec3(0.42, 0.75, -0.52));
-      float spec = pow(max(dot(reflect(-V, n), L), 0.0), 180.0) * 2.5;
-
-      float a = clamp(mix(0.16, 0.85, fres), 0.0, 1.0);
-      float tilt = length(n.xz - sh);
-      vec3 col = refl + vec3(0.6, 0.9, 1.0) * spec + vec3(0.35, 0.7, 1.0) * smoothstep(0.004, 0.1, tilt) * 0.32;
-      a = max(a, smoothstep(0.004, 0.1, tilt) * 0.45);
-
-      float dist = length(vWPos - cameraPosition);
-      float fogF = 1.0 - exp(-uFogDensity * uFogDensity * dist * dist);
-      vec3 vdir = -V;
-      float g = pow(max(dot(vdir, uGlowDir), 0.0), 6.0);
-      col = mix(col, mix(uFogColor, uGlowColor, g), fogF);
-      gl_FragColor = vec4(col, a);
-      #include <tonemapping_fragment>
-      #include <colorspace_fragment>
-    }`,
-};
-const reflScale = isMobile ? 0.4 : 0.6;
-const water = new Reflector(new THREE.PlaneGeometry(W_SIZE.x, W_SIZE.y), {
-  shader: waterShader,
-  textureWidth: Math.round(innerWidth * renderer.getPixelRatio() * reflScale),
-  textureHeight: Math.round(innerHeight * renderer.getPixelRatio() * reflScale),
-  clipBias: 0.003, multisample: 0, color: 0xffffff,
-});
-water.rotation.x = -Math.PI / 2;
-water.position.set(W_MIN.x + W_SIZE.x / 2, WATER_Y, W_MIN.y + W_SIZE.y / 2);
-const wu = water.material.uniforms;
-for (const k of ['uHeight', 'uWaterMin', 'uWaterSize', 'uTexel', 'uTime', 'uGlowDir', 'uGlowColor']) wu[k] = U[k];
-water.material.transparent = true;
-water.material.depthWrite = false;
-water.renderOrder = 1;
-scene.add(water);
-
-// ---------------------------------------------------------------- light shafts
-const shaftMat = (seed, strength) => new THREE.ShaderMaterial({
-  uniforms: { uTime: U.uTime, uSeed: { value: seed }, uStrength: { value: strength } },
+// light shafts
+const shaftMat = (seed, strength, tint) => new THREE.ShaderMaterial({
+  uniforms: { uTime: U.uTime, uSeed: { value: seed }, uStrength: { value: strength }, uTint: { value: tint } },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: /* glsl */`
-    uniform float uTime, uSeed, uStrength; varying vec2 vUv;
+    uniform float uTime, uSeed, uStrength; uniform vec3 uTint; varying vec2 vUv;
     void main(){
-      float across = smoothstep(0.0, 0.5, vUv.x) * smoothstep(1.0, 0.5, vUv.x);
-      across = pow(across, 1.6);
+      float across = pow(smoothstep(0.0, 0.5, vUv.x) * smoothstep(1.0, 0.5, vUv.x), 1.6);
       float along = smoothstep(0.0, 0.35, vUv.y) * smoothstep(1.0, 0.75, vUv.y);
       float flick = 0.55 + 0.45 * sin(uTime * 0.6 + uSeed * 17.0 + vUv.y * 2.5) * sin(uTime * 0.37 + uSeed * 5.0);
-      gl_FragColor = vec4(vec3(0.42, 0.8, 1.0) * across * along * flick * uStrength, 1.0);
+      gl_FragColor = vec4(uTint * across * along * flick * uStrength, 1.0);
     }`,
   transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
 });
-const lightDir = new THREE.Vector3().subVectors(sun.target.position, sun.position).normalize();
+const lightDir = new V3().subVectors(sun.target.position, sun.position).normalize();
 const shafts = [];
-for (let i = 0; i < 7; i++) {
-  const len = 22, w = 0.6 + Math.random() * 1.4;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, len), shaftMat(Math.random(), 0.05 + Math.random() * 0.06));
-  const center = new THREE.Vector3(-2.5 + Math.random() * 6.5, 6.5, -21 + Math.random() * 15);
-  m.userData.center = center;
+for (let i = 0; i < 6; i++) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.6 + Math.random() * 1.4, 22), shaftMat(Math.random(), 0.05 + Math.random() * 0.06, new V3(0.42, 0.8, 1.0)));
+  m.userData.center = new V3(-2.5 + Math.random() * 4.5, 6.5, -21 + Math.random() * 15);
   m.frustumCulled = false;
-  shafts.push(m); scene.add(m);
+  shafts.push(m); pool.add(m);
 }
-const _x = new THREE.Vector3(), _z = new THREE.Vector3(), _m = new THREE.Matrix4(), _to = new THREE.Vector3();
-function orientShafts(cam) {
-  const axis = lightDir.clone().negate(); // plane's local Y runs along the beam
+const _x = new V3(), _z = new V3(), _m = new THREE.Matrix4(), _to = new V3();
+function orientShafts() {
+  const axis = lightDir.clone().negate();
   for (const s of shafts) {
-    _to.subVectors(cam.position, s.userData.center);
+    _to.subVectors(camera.position, s.userData.center);
     _x.crossVectors(axis, _to).normalize();
     _z.crossVectors(_x, axis).normalize();
     _m.makeBasis(_x, axis, _z);
@@ -562,135 +913,668 @@ function orientShafts(cam) {
     s.position.copy(s.userData.center);
   }
 }
+makeMotes(pool, isMobile ? 240 : 480, new THREE.Box3(new V3(-6, 0, -24), new V3(8, 10, 6)), new V3(0.55, 0.85, 1.0), 1);
 
-// ---------------------------------------------------------------- drifting motes
-const MOTES = isMobile ? 260 : 520;
-const mp = new Float32Array(MOTES * 3), ms = new Float32Array(MOTES);
-for (let i = 0; i < MOTES; i++) {
-  mp[i * 3] = -6 + Math.random() * 14; mp[i * 3 + 1] = Math.random() * 10; mp[i * 3 + 2] = -24 + Math.random() * 30;
-  ms[i] = Math.random();
+// =====================================================================================
+// SCENE 2 — the flooded hotel hallway
+// =====================================================================================
+const hall = new THREE.Scene();
+const HFOG = new THREE.Color(0x150e07);
+hall.background = HFOG.clone();
+hall.fog = new THREE.FogExp2(HFOG, 0.05);
+const HW = 1.4, HZ0 = 7, HZ1 = -62, H_WATER = 0.22, H_FLOOR = -0.7;
+
+function damask(ctx, cx, cy, s) {
+  ctx.save(); ctx.translate(cx, cy);
+  for (const m of [1, -1]) {
+    ctx.save(); ctx.scale(m, 1);
+    ctx.beginPath();
+    ctx.moveTo(0, -112 * s);
+    ctx.bezierCurveTo(38 * s, -86 * s, 70 * s, -44 * s, 28 * s, -12 * s);
+    ctx.bezierCurveTo(84 * s, -22 * s, 96 * s, 40 * s, 44 * s, 52 * s);
+    ctx.bezierCurveTo(64 * s, 84 * s, 22 * s, 104 * s, 0, 124 * s);
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(56 * s, 10 * s, 17 * s, 0, Math.PI * 1.5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(28 * s, -12 * s); ctx.quadraticCurveTo(104 * s, -62 * s, 92 * s, -104 * s); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(70 * s, -88 * s, 8 * s, 18 * s, 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(44 * s, 52 * s); ctx.quadraticCurveTo(110 * s, 70 * s, 116 * s, 124 * s); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.beginPath(); ctx.ellipse(0, 4 * s, 11 * s, 34 * s, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, -70 * s, 6 * s, 16 * s, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 }
-const moteGeo = new THREE.BufferGeometry();
-moteGeo.setAttribute('position', new THREE.BufferAttribute(mp, 3));
-moteGeo.setAttribute('seed', new THREE.BufferAttribute(ms, 1));
-const motes = new THREE.Points(moteGeo, new THREE.ShaderMaterial({
-  uniforms: { uTime: U.uTime, uScale: { value: innerHeight * renderer.getPixelRatio() * 0.5 } },
-  vertexShader: /* glsl */`
-    attribute float seed; uniform float uTime, uScale; varying float vA;
-    void main(){
-      vec3 p = position;
-      p.y = mod(p.y + uTime * (0.05 + seed * 0.12), 10.0);
-      p.x += sin(uTime * 0.3 + seed * 30.0) * 0.25;
-      p.z += cos(uTime * 0.25 + seed * 20.0) * 0.25;
-      vec4 mv = modelViewMatrix * vec4(p, 1.0);
-      gl_Position = projectionMatrix * mv;
-      gl_PointSize = uScale * (0.012 + seed * 0.02) / -mv.z;
-      vA = (0.25 + 0.75 * seed) * smoothstep(30.0, 4.0, -mv.z) * (0.5 + 0.5 * sin(uTime * (1.0 + seed * 2.0) + seed * 40.0));
-    }`,
-  fragmentShader: /* glsl */`
-    varying float vA;
-    void main(){ float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.0, d); gl_FragColor = vec4(vec3(0.55, 0.85, 1.0) * a * vA * 0.9, 1.0); }`,
-  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-}));
-motes.frustumCulled = false;
-scene.add(motes);
+function patternTexture(bg, ink, shade, repeat, noiseAmt) {
+  const S = 512, c = document.createElement('canvas'); c.width = c.height = S;
+  const x = c.getContext('2d');
+  x.fillStyle = bg; x.fillRect(0, 0, S, S);
+  const img = x.getImageData(0, 0, S, S);
+  for (let i = 0; i < img.data.length; i += 4) { const n = (Math.random() - 0.5) * noiseAmt; img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n; }
+  x.putImageData(img, 0, 0);
+  x.lineWidth = 7; x.lineCap = 'round';
+  for (const [cx, cy] of [[0, 0], [S, 0], [0, S], [S, S], [S / 2, S / 2]]) {
+    x.strokeStyle = shade; x.fillStyle = shade; damask(x, cx + 3, cy + 3, 1.0);
+    x.strokeStyle = ink; x.fillStyle = ink; damask(x, cx, cy, 1.0);
+  }
+  return canvasTex(c, { repeat });
+}
+const paperTex = patternTexture('#8d7448', 'rgba(214,186,128,0.55)', 'rgba(60,42,18,0.3)', 1.7, 14);
+const carpetTex = patternTexture('#18253b', 'rgba(70,102,150,0.6)', 'rgba(5,10,20,0.4)', 1.2, 10);
 
-// ---------------------------------------------------------------- post: bloom, then an underwater lens
+function patchHall(mat, amt = 1) {
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = U.uTime;
+    sh.vertexShader = withWorldPos(sh.vertexShader);
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>\nvarying vec3 vWPos; varying vec3 vWNorm; uniform float uTime;\n${CAUSTIC_FUNCS}`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        float band = smoothstep(1.05, 0.3, vWPos.y) * step(${H_WATER.toFixed(3)}, vWPos.y);
+        if (band > 0.0) totalEmissiveRadiance += vec3(1.0, 0.82, 0.56) * pow(caustics(vWPos * 2.4, normalize(vWNorm), uTime * 0.8), 1.6) * band * ${amt.toFixed(2)} * 0.12;`);
+  };
+  mat.customProgramCacheKey = () => 'hall-' + amt;
+  return mat;
+}
+const plaster = patchHall(new THREE.MeshStandardMaterial({ color: 0xd9c6a0, roughness: 0.85 }));
+const vaultMat = new THREE.MeshStandardMaterial({ color: 0xd9c6a0, roughness: 0.85, side: THREE.DoubleSide });
+const beamMat = new THREE.MeshStandardMaterial({ color: 0xf2e6cb, roughness: 0.45, side: THREE.DoubleSide });
+const trimMat = patchHall(new THREE.MeshStandardMaterial({ color: 0xf2e6cb, roughness: 0.45 }), 0.8);
+const paperMat = patchHall(new THREE.MeshStandardMaterial({ map: paperTex, roughness: 0.9 }));
+const carpetMat = new THREE.MeshStandardMaterial({ map: carpetTex, roughness: 1 });
+const doorMat = patchHall(new THREE.MeshStandardMaterial({ color: 0xe9dcbd, roughness: 0.4 }), 0.7);
+const brassMat = new THREE.MeshStandardMaterial({ color: 0xc9a160, roughness: 0.3, metalness: 0.9 });
+const darkMat = new THREE.MeshStandardMaterial({ color: 0x1c1510, roughness: 0.6 });
+
+box(hall, [-HW - 0.3, HW + 0.3], [H_FLOOR - 0.1, H_FLOOR], [HZ1, HZ0], carpetMat, { cast: false });
+box(hall, [-HW - 0.3, HW + 0.3], [H_FLOOR, 3.9], [HZ0, HZ0 + 0.2], plaster, { cast: false });   // behind the camera
+box(hall, [-HW - 0.3, HW + 0.3], [H_FLOOR, 3.9], [HZ1 - 0.2, HZ1], plaster, { cast: false });   // far end
+// exit sign at the far end
+{
+  const c = document.createElement('canvas'); c.width = 256; c.height = 96;
+  const x = c.getContext('2d');
+  x.fillStyle = '#140404'; x.fillRect(0, 0, 256, 96);
+  x.fillStyle = '#ff3b2f'; x.font = '600 64px Helvetica, Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText('EXIT', 128, 52);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.2), new THREE.MeshBasicMaterial({ map: canvasTex(c), color: 0xffffff }));
+  sign.material.color.setScalar(2.2);
+  sign.position.set(0.5, 2.45, HZ1 + 0.02);
+  hall.add(sign);
+  const doorDark = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 2.3), new THREE.MeshBasicMaterial({ color: 0x050302 }));
+  doorDark.position.set(0, 1.0, HZ1 + 0.01); hall.add(doorDark);
+}
+
+// ceiling: chamfered vault plus repeating beams
+{
+  const vault = new THREE.Shape();
+  vault.moveTo(-HW, 2.9); vault.lineTo(-0.95, 3.45); vault.lineTo(0.95, 3.45); vault.lineTo(HW, 2.9); vault.lineTo(HW, 3.95); vault.lineTo(-HW, 3.95); vault.closePath();
+  const vg = new THREE.ExtrudeGeometry(vault, { depth: HZ0 - HZ1, bevelEnabled: false });
+  const vm = new THREE.Mesh(vg, vaultMat); vm.position.z = HZ1; hall.add(vm);
+  const beam = new THREE.Shape();
+  beam.moveTo(-HW, 2.58); beam.lineTo(-0.86, 3.1); beam.lineTo(0.86, 3.1); beam.lineTo(HW, 2.58); beam.lineTo(HW, 3.9); beam.lineTo(-HW, 3.9); beam.closePath();
+  const bg = new THREE.ExtrudeGeometry(beam, { depth: 0.42, bevelEnabled: false });
+  const lip = new THREE.Shape();
+  lip.moveTo(-HW, 2.5); lip.lineTo(-0.83, 3.04); lip.lineTo(0.83, 3.04); lip.lineTo(HW, 2.5); lip.lineTo(HW, 2.6); lip.lineTo(0.87, 3.11); lip.lineTo(-0.87, 3.11); lip.lineTo(-HW, 2.6); lip.closePath();
+  // simple trim lip under each beam (drawn as a thin extrusion)
+  const lg = new THREE.ExtrudeGeometry(lip, { depth: 0.5, bevelEnabled: false });
+  for (let z = HZ0 - 1.5; z > HZ1; z -= 3) {
+    const b = new THREE.Mesh(bg, beamMat); b.position.z = z - 0.21; hall.add(b);
+    const l = new THREE.Mesh(lg, beamMat); l.position.z = z - 0.25; hall.add(l);
+  }
+}
+
+// walls with door openings, wallpaper panels in moulded frames
+const DOOR_W = 1.1, DOOR_H = 2.25, WALL_T = 0.16;
+const leftDoors = [], rightDoors = [];
+for (let z = -3; z > HZ1 + 2; z -= 6) leftDoors.push(z);
+for (let z = 0; z > HZ1 + 2; z -= 6) rightDoors.push(z);
+function buildWall(side, doorZs) {
+  const xin = side * HW, xout = side * (HW + WALL_T);
+  const xr = [Math.min(xin, xout), Math.max(xin, xout)];
+  const sorted = [...doorZs].sort((a, b) => b - a);
+  let zTop = HZ0;
+  for (const dz of sorted) {
+    box(hall, xr, [H_FLOOR, 2.95], [dz + DOOR_W / 2, zTop], plaster, { cast: false });
+    box(hall, xr, [DOOR_H, 2.95], [dz - DOOR_W / 2, dz + DOOR_W / 2], plaster, { cast: false });
+    zTop = dz - DOOR_W / 2;
+  }
+  box(hall, xr, [H_FLOOR, 2.95], [HZ1, zTop], plaster, { cast: false });
+  // baseboard and crown moulding run the full length
+  const bx = side * (HW - 0.015);
+  box(hall, [Math.min(bx, xin), Math.max(bx, xin)], [H_FLOOR, 0.32], [HZ1, HZ0], trimMat, { cast: false });
+  const cx = side * (HW - 0.045);
+  box(hall, [Math.min(cx, xin), Math.max(cx, xin)], [2.78, 2.9], [HZ1, HZ0], trimMat, { cast: false });
+}
+buildWall(-1, leftDoors);
+buildWall(1, rightDoors);
+function panel(side, zc) {
+  const w = 2.15, h0 = 0.6, h1 = 2.5, x = side * (HW - 0.006);
+  const g = new THREE.PlaneGeometry(w, h1 - h0);
+  const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w, uv.getY(i) * (h1 - h0));
+  const m = new THREE.Mesh(g, paperMat);
+  m.rotation.y = -side * Math.PI / 2;
+  m.position.set(x, (h0 + h1) / 2, zc);
+  hall.add(m);
+  const fx = side * (HW - 0.025), t = 0.045;
+  boxAt(hall, fx, h1 + t / 2, zc, 0.04, t, w + t * 2, trimMat, { cast: false });
+  boxAt(hall, fx, h0 - t / 2, zc, 0.04, t, w + t * 2, trimMat, { cast: false });
+  boxAt(hall, fx, (h0 + h1) / 2, zc - w / 2 - t / 2, 0.04, h1 - h0, t, trimMat, { cast: false });
+  boxAt(hall, fx, (h0 + h1) / 2, zc + w / 2 + t / 2, 0.04, h1 - h0, t, trimMat, { cast: false });
+}
+for (let z = 0; z > HZ1 + 2; z -= 6) panel(-1, z);
+for (let z = 3; z > HZ1 + 2; z -= 6) panel(1, z);
+
+// plaques
+function plaqueTexture(no, name) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 340;
+  const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 256, 340);
+  g.addColorStop(0, '#e8c98a'); g.addColorStop(0.5, '#b88d4b'); g.addColorStop(1, '#e1bf7c');
+  x.fillStyle = g; x.fillRect(0, 0, 256, 340);
+  x.strokeStyle = 'rgba(60,38,10,0.7)'; x.lineWidth = 6; x.strokeRect(14, 14, 228, 312);
+  x.fillStyle = '#3a2508'; x.textAlign = 'center';
+  x.font = '400 120px "Instrument Serif", Georgia, serif'; x.fillText(String(no), 128, 170);
+  x.font = '500 30px "JetBrains Mono", Menlo, monospace';
+  x.fillText(name.toUpperCase(), 128, 250);
+  return canvasTex(c);
+}
+
+// doors
+const doors = [];
+const pickables = [];
+const DOOR_DEFS = [];
+leftDoors.forEach((z, i) => DOOR_DEFS.push({ side: -1, z }));
+rightDoors.forEach((z, i) => DOOR_DEFS.push({ side: 1, z }));
+DOOR_DEFS.sort((a, b) => b.z - a.z);
+// rooms in walking order: the first six doors past the camera
+const firstRoomZ = -2;
+let roomIdx = 0, fillerNo = 107;
+for (const d of DOOR_DEFS) {
+  const room = (d.z <= firstRoomZ && roomIdx < ROOMS.length) ? ROOMS[roomIdx++] : null;
+  makeDoor(d.side, d.z, room, room ? room.no : (d.z > firstRoomZ ? 100 : fillerNo++));
+}
+function makeDoor(side, z, room, no) {
+  const s = side, fx = s * (HW - 0.02);
+  // architrave
+  boxAt(hall, fx, (DOOR_H + 0.1) / 2 - 0.05, z - DOOR_W / 2 - 0.05, 0.05, DOOR_H + 0.1, 0.1, trimMat, { cast: false });
+  boxAt(hall, fx, (DOOR_H + 0.1) / 2 - 0.05, z + DOOR_W / 2 + 0.05, 0.05, DOOR_H + 0.1, 0.1, trimMat, { cast: false });
+  boxAt(hall, fx, DOOR_H + 0.05, z, 0.05, 0.1, DOOR_W + 0.2, trimMat, { cast: false });
+  // the room behind: glows faintly through the gaps, floods with light when opened
+  const glowMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: new THREE.Color(room ? room.accent : '#f0c890'), emissiveIntensity: 0.05, side: THREE.BackSide });
+  boxAt(hall, s * (HW + WALL_T + 0.9), 1.0, z, 1.8, 3.4, 1.8, glowMat, { cast: false, receive: false });
+  // the slab on a hinge
+  const pivot = new THREE.Group();
+  pivot.position.set(s * (HW + 0.06), 0, z - 0.5);
+  hall.add(pivot);
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(0.05, 2.2, 1.0), doorMat);
+  slab.position.set(0, 1.1 - 0.02, 0.5);
+  pivot.add(slab);
+  const inset = (y, h) => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.018, h, 0.72), doorMat); m.position.set(-s * 0.03, y, 0.5); pivot.add(m); return m; };
+  const p1 = inset(1.55, 0.85), p2 = inset(0.62, 0.7);
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.026, 0.15), brassMat); handle.position.set(-s * 0.07, 1.02, 0.84); pivot.add(handle);
+  const rose = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.02, 20), brassMat); rose.rotation.z = Math.PI / 2; rose.position.set(-s * 0.035, 1.02, 0.9); pivot.add(rose);
+  const reader = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.12, 0.06), darkMat); reader.position.set(-s * 0.035, 1.2, 0.9); pivot.add(reader);
+  const peep = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.02, 12), brassMat); peep.rotation.z = Math.PI / 2; peep.position.set(-s * 0.03, 1.6, 0.5); pivot.add(peep);
+  // plaque on the wall beside the door
+  const plaqueMat = new THREE.MeshStandardMaterial({ map: plaqueTexture(no, room ? room.label : 'Room'), roughness: 0.35, metalness: 0.6, emissive: 0xffd9a0, emissiveIntensity: 0 });
+  const plaque = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.265), plaqueMat);
+  plaque.rotation.y = -s * Math.PI / 2;
+  plaque.position.set(s * (HW - 0.008), 1.55, z + DOOR_W / 2 + 0.32);
+  hall.add(plaque);
+  if (!room && no !== 100) {
+    // a do-not-disturb hanger on the locked rooms
+    const c = document.createElement('canvas'); c.width = 64; c.height = 160;
+    const x = c.getContext('2d'); x.fillStyle = '#7a1a16'; x.fillRect(0, 0, 64, 160);
+    x.fillStyle = '#f2e2c4'; x.font = '600 13px Menlo, monospace'; x.textAlign = 'center';
+    ['DO', 'NOT', 'DISTURB'].forEach((w, i) => x.fillText(w, 32, 70 + i * 18));
+    x.beginPath(); x.arc(32, 22, 10, 0, Math.PI * 2); x.fillStyle = '#1a0605'; x.fill();
+    const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.17), new THREE.MeshStandardMaterial({ map: canvasTex(c), roughness: 0.7, side: THREE.DoubleSide }));
+    tag.rotation.y = -s * Math.PI / 2; tag.position.set(-s * 0.09, 0.93, 0.84); pivot.add(tag);
+  }
+  const door = { side: s, z, room, no, pivot, glowMat, plaqueMat, open: 0, hover: 0, rattle: 0, index: doors.length };
+  doors.push(door);
+  for (const m of [slab, p1, p2, handle, plaque]) { m.userData.door = door; pickables.push(m); }
+}
+
+// lights
+hall.add(new THREE.HemisphereLight(0xffe2b8, 0x1a1008, 0.22));
+const domeGeo = new THREE.SphereGeometry(0.24, 28, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+const domeMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffe3b5, emissiveIntensity: 3.2 });
+for (let z = HZ0 - 3; z > HZ1; z -= 6) {
+  const d = new THREE.Mesh(domeGeo, domeMat); d.scale.y = 0.45; d.position.set(0, 3.45, z); hall.add(d);
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.03, 28), trimMat); ring.position.set(0, 3.44, z); hall.add(ring);
+}
+for (const z of [4, -2, -8, -14, -20, -26]) {
+  const l = new THREE.PointLight(0xffd29a, 5, 11, 2); l.position.set(0, 3.05, z); hall.add(l);
+}
+const doorLight = new THREE.PointLight(0xffe2b0, 0, 6, 2); hall.add(doorLight);
+
+const hallSim = new RippleSim(new THREE.Vector2(-HW, HZ1), new THREE.Vector2(HW * 2, HZ0 - HZ1), 48, 1180);
+const hallWater = makeWater(hall, hallSim, H_WATER, {
+  fogColor: HFOG, fogDensity: 0.05, glowDir: new V3(0, 0, -1), glowColor: HFOG,
+  tint: new V3(1.0, 0.92, 0.8), deep: new V3(0.004, 0.014, 0.03), reflMix: 0.28, alpha: new THREE.Vector2(0.62, 0.96),
+  shimmer: 0.006, normal: 40, lightDir: new V3(0, 0.9, -0.42),
+});
+// the surface seen from below, for the moment you come up through it
+const underside = new THREE.Mesh(new THREE.PlaneGeometry(HW * 2, HZ0 - HZ1), new THREE.MeshBasicMaterial({ color: 0x3f7896, transparent: true, opacity: 0.75, side: THREE.BackSide }));
+underside.rotation.x = -Math.PI / 2; underside.position.set(0, H_WATER - 0.002, (HZ0 + HZ1) / 2);
+hall.add(underside);
+makeMotes(hall, isMobile ? 120 : 220, new THREE.Box3(new V3(-1.3, 0.3, -30), new V3(1.3, 3.2, 6)), new V3(1.0, 0.82, 0.55), 0.7);
+
+// =====================================================================================
+// Post: bloom, then an underwater lens that also handles the dive and door flashes
+// =====================================================================================
 const composer = new EffectComposer(renderer);
 composer.setPixelRatio(renderer.getPixelRatio());
 composer.setSize(innerWidth, innerHeight);
-composer.addPass(new RenderPass(scene, camera));
+const renderPass = new RenderPass(pool, camera);
+composer.addPass(renderPass);
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.75, 0.62);
 composer.addPass(bloom);
+const fx = { dive: 0, flash: 0, wet: 0 };
 const lens = new ShaderPass({
-  uniforms: { tDiffuse: { value: null }, uTime: U.uTime, uRes: { value: new THREE.Vector2(innerWidth, innerHeight) } },
+  uniforms: {
+    tDiffuse: { value: null }, uTime: U.uTime, uRes: { value: new THREE.Vector2(innerWidth, innerHeight) },
+    uDive: { value: 0 }, uFlash: { value: 0 }, uWet: { value: 0 },
+    uFlashColor: { value: new V3(1.6, 1.4, 1.1) }, uGrade: { value: new V3(0.86, 1.0, 1.08) },
+  },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse; uniform float uTime; uniform vec2 uRes; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform float uTime, uDive, uFlash, uWet; uniform vec2 uRes; uniform vec3 uFlashColor, uGrade;
+    varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float bubbles(vec2 uv, float t){
+      float b = 0.0; float asp = uRes.x / uRes.y;
+      for (int i = 0; i < 3; i++) {
+        float fi = float(i);
+        float s = 5.0 + fi * 4.0;
+        vec2 g = vec2(uv.x * asp * s, uv.y * s - t * (1.4 + fi * 0.8));
+        vec2 id = floor(g); vec2 f = fract(g) - 0.5;
+        float h = hash(id + fi * 17.0);
+        if (h < 0.66) continue;
+        f.x += sin(t * 3.0 + h * 20.0) * 0.1;
+        vec2 o = vec2(hash(id + 3.1) - 0.5, hash(id + 7.7) - 0.5) * 0.4;
+        float r = 0.06 + 0.12 * hash(id + 1.3);
+        float d = length(f - o);
+        float ring = smoothstep(r, r - 0.025, d) * (0.2 + 0.8 * smoothstep(r * 0.4, r, d));
+        float hi = smoothstep(r * 0.35, 0.0, length(f - o - vec2(-r * 0.35, r * 0.35)));
+        b += ring + hi * 0.8;
+      }
+      return b;
+    }
     void main(){
       vec2 uv = vUv;
-      uv += vec2(sin(uv.y * 14.0 + uTime * 0.9), cos(uv.x * 11.0 + uTime * 0.7)) * 0.0009;   // water wobble
+      float wob = 0.0009 + uDive * 0.007;
+      uv += vec2(sin(uv.y * 14.0 + uTime * (0.9 + uDive * 3.0)), cos(uv.x * 11.0 + uTime * (0.7 + uDive * 2.5))) * wob;
+      if (uWet > 0.001) {
+        vec2 g = vec2(uv.x * uRes.x / uRes.y * 8.0, uv.y * 4.5 + uTime * 0.5);
+        vec2 id = floor(g); vec2 f = fract(g) - 0.5;
+        float h = hash(id);
+        vec2 o = vec2(h - 0.5, fract(h * 7.0) - 0.5) * 0.5;
+        float drop = smoothstep(0.24, 0.1, length((f - o) * vec2(1.0, 0.65))) * step(0.4, h);
+        uv += (f - o) * drop * 0.035 * uWet;
+      }
       vec2 c = uv - 0.5;
-      float ca = 0.006 * dot(c, c);
+      float ca = 0.006 * dot(c, c) + uDive * 0.004;
       vec3 col = vec3(texture2D(tDiffuse, uv + c * ca * 2.0).r, texture2D(tDiffuse, uv).g, texture2D(tDiffuse, uv - c * ca * 2.0).b);
+      if (uDive > 0.001) {
+        vec2 px = 4.0 / uRes * uDive;
+        vec3 bl = (texture2D(tDiffuse, uv + vec2(px.x, 0.0)).rgb + texture2D(tDiffuse, uv - vec2(px.x, 0.0)).rgb +
+                   texture2D(tDiffuse, uv + vec2(0.0, px.y)).rgb + texture2D(tDiffuse, uv - vec2(0.0, px.y)).rgb) * 0.25;
+        col = mix(col, bl, uDive);
+        vec3 deep = vec3(0.01, 0.08, 0.13) * (0.5 + 1.1 * smoothstep(0.0, 1.0, uv.y));
+        col = mix(col, deep + col * vec3(0.1, 0.35, 0.5), uDive * 0.85);
+        col += vec3(0.55, 0.85, 1.0) * bubbles(uv, uTime) * uDive * 0.55;
+      }
       float vig = smoothstep(1.05, 0.2, length(c * vec2(1.0, 1.25)));
       col *= mix(0.28, 1.0, vig);
-      col = mix(col, col * vec3(0.86, 1.0, 1.08), 0.6);                                // push toward teal
+      col = mix(col, col * uGrade, 0.6);
       float n = fract(sin(dot(floor(uv * uRes) + fract(uTime * 7.0) * 91.0, vec2(12.9898, 78.233))) * 43758.5453);
       col += (n - 0.5) * 0.03 * (0.3 + col);
+      col = mix(col, uFlashColor, uFlash);
       gl_FragColor = vec4(col, 1.0);
     }`,
 });
 composer.addPass(lens);
 composer.addPass(new OutputPass());
 
-// ---------------------------------------------------------------- camera rig + pointer
-const BASE_POS = new THREE.Vector3(0.55, 1.55, 7.2);
-const BASE_LOOK = new THREE.Vector3(-0.1, 2.75, -14);
+// =====================================================================================
+// State, camera rig, tweens
+// =====================================================================================
+let state = 'pool';           // pool | diving | hall | entering | room | leaving | surfacing
+let active = pool;
+const rig = { pos: new V3(0.55, 1.55, 7.2), look: new V3(0.4, 2.7, -14), parallax: 1 };
+const POOL_POS = new V3(0.55, 1.55, 7.2), POOL_LOOK = new V3(0.4, 2.7, -14);
+const HALL_Z0 = 4.2, HALL_Z1 = -36;
+let hallZ = HALL_Z0, hallZT = HALL_Z0;
 const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
+
+function setState(s) { state = s; document.body.dataset.state = s; }
+function setScene(s) {
+  active = s; renderPass.scene = s;
+  lens.uniforms.uGrade.value.set(...(s === pool ? [0.86, 1.0, 1.08] : [1.05, 1.0, 0.9]));
+  bloom.threshold = s === pool ? 0.62 : 0.7;
+}
+
+const tweens = [];
+let timeScale = 1; // debug slow-motion only
+const ease = {
+  io: (k) => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2,
+  in: (k) => k * k * k,
+  out: (k) => 1 - Math.pow(1 - k, 3),
+  lin: (k) => k,
+};
+function tween(dur, fn, e = ease.io) {
+  return new Promise((res) => tweens.push({ t: 0, dur: Math.max(0.001, dur * SPEED), fn, e, res }));
+}
+function runTweens(dt) {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const tw = tweens[i];
+    tw.t += dt;
+    const k = Math.min(tw.t / tw.dur, 1);
+    tw.fn(tw.e(k), k);
+    if (k >= 1) { tweens.splice(i, 1); tw.res(); }
+  }
+}
+const lerpRig = (p0, p1, l0, l1) => (k) => { rig.pos.lerpVectors(p0, p1, k); rig.look.lerpVectors(l0, l1, k); };
+
+// ---------------------------------------------------------------- the dive: pool floor → under → up into the hallway
+async function dive() {
+  if (state !== 'pool') return;
+  setState('diving');
+  whoosh(1.2);
+  const p0 = rig.pos.clone(), l0 = rig.look.clone();
+  const p1 = new V3(0.35, 0.95, 1.4), l1 = new V3(0.2, 0.1, -6);
+  poolSim.addDrop(0.3, -1.0, 0.9, 0.05);
+  tween(1.2, (k) => { rig.parallax = 1 - k * 0.8; });
+  await tween(1.5, lerpRig(p0, p1, l0, l1));
+  poolSim.addDrop(0.35, 0.2, 0.7, 0.06);
+  const p2 = new V3(0.35, 0.07, -0.3), l2 = new V3(0.25, -0.6, -4.5);
+  await tween(0.75, (k) => { lerpRig(p1, p2, l1, l2)(k); fx.dive = k; }, ease.in);
+  plop(1.0);
+  setScene(hall);
+  rig.pos.set(0, -0.4, HALL_Z0 + 0.6); rig.look.set(0, 0.4, -6);
+  hallZ = hallZT = HALL_Z0;
+  await tween(0.55, () => { fx.dive = 1; }, ease.lin);
+  const pa = rig.pos.clone(), la = rig.look.clone();
+  const pb = new V3(0, 1.55, HALL_Z0), lb = new V3(0, 1.45, HALL_Z0 - 12);
+  let surfaced = false;
+  await tween(1.9, (k) => {
+    lerpRig(pa, pb, la, lb)(k);
+    fx.dive = THREE.MathUtils.clamp((H_WATER + 0.12 - rig.pos.y) / 0.32, 0, 1);
+    if (!surfaced && rig.pos.y > H_WATER) { surfaced = true; fx.wet = 1; hallSim.addDrop(0, HALL_Z0 + 0.4, 0.7, 0.06); splash(); }
+  }, ease.out);
+  tween(0.8, (k) => { rig.parallax = 0.2 + k * 0.8; });
+  setState('hall');
+}
+// ---------------------------------------------------------------- back up: hallway water → pool
+async function surface() {
+  if (state !== 'hall') return;
+  setState('surfacing');
+  whoosh(1.0);
+  const p0 = rig.pos.clone(), l0 = rig.look.clone();
+  const p1 = new V3(0, -0.3, rig.pos.z - 1.2), l1 = new V3(0, -0.8, rig.pos.z - 6);
+  hallSim.addDrop(0, rig.pos.z - 1.6, 0.7, 0.06);
+  await tween(1.2, (k) => { lerpRig(p0, p1, l0, l1)(k); fx.dive = THREE.MathUtils.clamp((H_WATER + 0.12 - rig.pos.y) / 0.32, 0, 1); }, ease.in);
+  fx.dive = 1;
+  setScene(pool);
+  rig.pos.set(0.35, 0.06, 1.2); rig.look.set(0.3, 0.9, -8);
+  await tween(0.5, () => { fx.dive = 1; }, ease.lin);
+  const pa = rig.pos.clone(), la = rig.look.clone();
+  poolSim.addDrop(0.35, 0.2, 0.8, 0.05);
+  await tween(1.8, (k) => { lerpRig(pa, POOL_POS, la, POOL_LOOK)(k); fx.dive = 1 - ease.out(Math.min(1, k * 2.2)); }, ease.out);
+  fx.wet = 0.8;
+  rig.parallax = 1;
+  setState('pool');
+}
+
+// ---------------------------------------------------------------- doors
+let hotDoor = null;
+let currentDoor = null;
+async function enterDoor(door) {
+  if (state !== 'hall' || !door) return;
+  if (!door.room) { door.rattle = 1; rattle(); return; }
+  setState('entering');
+  currentDoor = door;
+  const s = door.side, room = door.room;
+  lens.uniforms.uFlashColor.value.set(...room.flash);
+  doorLight.color.set(room.accent);
+  doorLight.position.set(s * (HW + 0.6), 1.3, door.z);
+  const p0 = rig.pos.clone(), l0 = rig.look.clone();
+  const p1 = new V3(-s * 0.4, 1.55, door.z + 0.05), l1 = new V3(s * HW, 1.35, door.z);
+  const dist = Math.abs(p0.z - p1.z);
+  tween(0.6, (k) => { rig.parallax = 1 - k * 0.85; });
+  await tween(0.9 + dist * 0.11, lerpRig(p0, p1, l0, l1));
+  creak();
+  await tween(1.1, (k) => {
+    door.open = k;
+    door.glowMat.emissiveIntensity = 0.3 + k * 3.5;
+    doorLight.intensity = k * 8;
+  });
+  const p2 = new V3(s * (HW + 1.2), 1.5, door.z), l2 = new V3(s * (HW + 4), 1.4, door.z);
+  await tween(1.0, (k) => { lerpRig(p1, p2, l1, l2)(k); fx.flash = ease.in(k); }, ease.in);
+  openRoom(room);
+}
+async function leaveRoom() {
+  if (state !== 'room' || !currentDoor) return;
+  const door = currentDoor, s = door.side;
+  closeRoom();
+  setState('leaving');
+  paused = false;
+  const p2 = rig.pos.clone(), l2 = rig.look.clone();
+  const p1 = new V3(-s * 0.4, 1.55, door.z + 0.05), l1 = new V3(s * HW, 1.35, door.z);
+  await tween(1.1, (k) => { lerpRig(p2, p1, l2, l1)(k); fx.flash = 1 - ease.out(k); }, ease.out);
+  const pz = new V3(0, 1.55, door.z + 0.05), lz = new V3(0, 1.45, door.z - 12);
+  tween(0.9, (k) => {
+    door.open = 1 - k;
+    door.glowMat.emissiveIntensity = 0.05 + (1 - k) * 3.7;
+    doorLight.intensity = (1 - k) * 8;
+  });
+  await tween(1.1, lerpRig(p1, pz, l1, lz));
+  hallZ = hallZT = door.z + 0.05;
+  tween(0.6, (k) => { rig.parallax = 0.15 + k * 0.85; });
+  currentDoor = null;
+  setState('hall');
+  document.querySelector(`.door-btn[data-room="${door.room.key}"]`)?.focus({ preventScroll: true });
+}
+
+// ---------------------------------------------------------------- room overlay
+const roomEl = document.getElementById('room');
+let paused = false, pauseTimer = 0;
+function openRoom(room) {
+  roomEl.style.setProperty('--room-bg', room.bg);
+  roomEl.style.setProperty('--room-accent', room.accent);
+  document.getElementById('room-plate').textContent = `Room ${room.no} · ${room.place}`;
+  document.getElementById('room-title').innerHTML = room.title;
+  document.getElementById('room-body').innerHTML = room.body();
+  roomEl.scrollTop = 0;
+  roomEl.hidden = false;
+  requestAnimationFrame(() => roomEl.classList.add('open'));
+  setState('room');
+  clearTimeout(pauseTimer);
+  pauseTimer = setTimeout(() => { if (state === 'room') paused = true; }, 800);
+  document.getElementById('room-back').focus({ preventScroll: true });
+  const copy = document.getElementById('copy-email');
+  if (copy) copy.addEventListener('click', () => {
+    const done = () => { copy.textContent = 'Copied'; setTimeout(() => (copy.textContent = 'Copy email'), 1600); };
+    navigator.clipboard?.writeText(PROFILE.email).then(done).catch(() => {
+      const r = document.createRange(); r.selectNodeContents(document.getElementById('email'));
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    });
+  });
+}
+function closeRoom() {
+  clearTimeout(pauseTimer);
+  roomEl.classList.remove('open');
+  setTimeout(() => { if (!roomEl.classList.contains('open')) roomEl.hidden = true; }, 700);
+}
+document.getElementById('room-back').addEventListener('click', leaveRoom);
+addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && state === 'room') leaveRoom();
+  if (state === 'hall') {
+    if (e.key === 'ArrowUp' || e.key === 'w') hallZT -= 1.5;
+    if (e.key === 'ArrowDown' || e.key === 's') hallZT += 1.5;
+    hallZT = THREE.MathUtils.clamp(hallZT, HALL_Z1, HALL_Z0);
+  }
+});
+
+// directory buttons (keyboard and touch friendly way to reach every door)
+const directory = document.getElementById('directory');
+for (const door of doors.filter((d) => d.room)) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'door-btn'; b.dataset.room = door.room.key;
+  b.innerHTML = `<b>${door.room.no}</b>${door.room.label}`;
+  b.addEventListener('click', () => enterDoor(door));
+  b.addEventListener('mouseenter', () => setHot(door));
+  b.addEventListener('mouseleave', () => setHot(null));
+  b.addEventListener('focus', () => setHot(door));
+  b.addEventListener('blur', () => setHot(null));
+  directory.appendChild(b);
+}
+const capName = document.getElementById('cap-name'), capMeta = document.getElementById('cap-meta');
+const WALK_HINT = isMobile ? 'Swipe to walk · Choose a door' : 'Scroll to walk · Choose a door';
+capMeta.textContent = WALK_HINT;
+function setHot(door) {
+  if (hotDoor === door) return;
+  hotDoor = door;
+  document.body.classList.toggle('door-hover', !!door);
+  document.querySelectorAll('.door-btn').forEach((b) => b.classList.toggle('is-hot', !!door?.room && b.dataset.room === door.room.key));
+  if (door?.room) { capName.textContent = door.room.label; capMeta.textContent = `Room ${door.room.no} · ${door.room.place}`; }
+  else if (door) { capName.textContent = `Room ${door.no}`; capMeta.textContent = 'Do not disturb'; }
+  else { capName.textContent = ''; capMeta.textContent = WALK_HINT; }
+}
+
+document.getElementById('show-work').addEventListener('click', dive);
+document.getElementById('surface').addEventListener('click', surface);
+
+// =====================================================================================
+// Pointer, wheel, touch
+// =====================================================================================
 const ray = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
-const waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -WATER_Y);
-const hit = new THREE.Vector3();
-let lastDrop = null;
-
-function waterPoint(clientX, clientY) {
-  ndc.set((clientX / innerWidth) * 2 - 1, -(clientY / innerHeight) * 2 + 1);
-  ray.setFromCamera(ndc, camera);
-  return ray.ray.intersectPlane(waterPlane, hit) ? hit : null;
+const hit = new V3();
+let lastDrop = null, down = null;
+function setRay(cx, cy) { ndc.set((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); }
+function waterHit(cx, cy) {
+  const y = active === pool ? P_WATER_Y : H_WATER;
+  setRay(cx, cy);
+  return ray.ray.intersectPlane(new THREE.Plane(new V3(0, 1, 0), -y), hit) ? hit : null;
 }
+const simFor = () => (active === pool ? poolSim : hallSim);
 function onMove(e) {
   pointer.tx = (e.clientX / innerWidth) * 2 - 1;
   pointer.ty = (e.clientY / innerHeight) * 2 - 1;
-  const p = waterPoint(e.clientX, e.clientY);
+  if (down && state === 'hall') {
+    const dy = e.clientY - down.y;
+    if (Math.abs(dy) > 6) down.moved = true;
+    if (down.moved) { hallZT = THREE.MathUtils.clamp(down.z + dy * 0.02, HALL_Z1, HALL_Z0); return; }
+  }
+  if (state === 'hall') {
+    setRay(e.clientX, e.clientY);
+    const h = ray.intersectObjects(pickables, false)[0];
+    setHot(h ? h.object.userData.door : null);
+    if (h) return;
+  }
+  if (state !== 'pool' && state !== 'hall') return;
+  const p = waterHit(e.clientX, e.clientY);
   if (!p) return;
   if (!lastDrop || lastDrop.distanceTo(p) > 0.18) {
     const fast = lastDrop ? Math.min(lastDrop.distanceTo(p), 1.2) : 0.3;
-    addDrop(p.x, p.z, 0.22, 0.0035 + fast * 0.004);
-    lastDrop = (lastDrop || new THREE.Vector3()).copy(p);
+    simFor().addDrop(p.x, p.z, 0.22, 0.0035 + fast * 0.004);
+    lastDrop = (lastDrop || new V3()).copy(p);
     trail(fast);
   }
 }
 function onDown(e) {
-  onMove(e);
-  const p = waterPoint(e.clientX, e.clientY);
+  down = { y: e.clientY, z: hallZT, moved: false };
+  if (state === 'pool') splashAt(e);
+}
+function onUp(e) {
+  const d = down; down = null;
+  if (!d || d.moved || state !== 'hall') return;
+  setRay(e.clientX, e.clientY);
+  const h = ray.intersectObjects(pickables, false)[0];
+  if (h) enterDoor(h.object.userData.door);
+  else splashAt(e);
+}
+function splashAt(e) {
+  const p = waterHit(e.clientX, e.clientY);
   if (!p) return;
-  addDrop(p.x, p.z, 0.5, 0.038);
-  const x = p.x, z = p.z;
-  setTimeout(() => addDrop(x, z, 0.3, -0.02), 90);
+  const sim = simFor(), x = p.x, z = p.z;
+  sim.addDrop(x, z, 0.5, 0.038);
+  setTimeout(() => sim.addDrop(x, z, 0.3, -0.02), 90);
   plop(0.9);
 }
 canvas.addEventListener('pointermove', onMove);
 canvas.addEventListener('pointerdown', onDown);
+canvas.addEventListener('pointerup', onUp);
+canvas.addEventListener('pointercancel', () => { down = null; });
 addEventListener('pointerleave', () => { pointer.tx = 0; pointer.ty = 0; });
+addEventListener('wheel', (e) => {
+  if (state !== 'hall') return;
+  hallZT = THREE.MathUtils.clamp(hallZT - e.deltaY * 0.006, HALL_Z1, HALL_Z0);
+}, { passive: true });
 
-// ---------------------------------------------------------------- sound (synthesised, opt-in)
+// =====================================================================================
+// Sound (synthesised, opt-in)
+// =====================================================================================
 let audio = null, soundOn = false;
 const soundBtn = document.getElementById('sound');
+function noiseBuffer(ctx, secs, brown) {
+  const len = ctx.sampleRate * secs, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; if (brown) { last = (last + 0.02 * w) / 1.02; d[i] = last * 3.2; } else d[i] = w; }
+  return buf;
+}
 function startAudio() {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
-  // brown-noise room tone through a slowly breathing low-pass
-  const len = ctx.sampleRate * 4, buf = ctx.createBuffer(2, len, ctx.sampleRate);
-  for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); let last = 0; for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; d[i] = last * 3.2; } }
-  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const src = ctx.createBufferSource(); src.buffer = noiseBuffer(ctx, 4, true); src.loop = true;
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380; lp.Q.value = 0.6;
   const lfo = ctx.createOscillator(); lfo.frequency.value = 0.06; const lfoG = ctx.createGain(); lfoG.gain.value = 160; lfo.connect(lfoG).connect(lp.frequency); lfo.start();
   const bed = ctx.createGain(); bed.gain.value = 0.55;
   src.connect(lp).connect(bed).connect(master); src.start();
-  // a low hum, like the pool's filter pump two rooms away
   const hum = ctx.createOscillator(); hum.frequency.value = 55; const humG = ctx.createGain(); humG.gain.value = 0.025; hum.connect(humG).connect(master); hum.start();
-  return { ctx, master };
+  return { ctx, master, lp, white: noiseBuffer(ctx, 2, false) };
 }
+const live = () => audio && soundOn;
 function plop(size = 0.4) {
-  if (!audio || !soundOn) return;
+  if (!live()) return;
   const { ctx, master } = audio, t = ctx.currentTime;
   const o = ctx.createOscillator(), g = ctx.createGain();
-  o.type = 'sine';
   const f0 = 520 + Math.random() * 380 - size * 200;
   o.frequency.setValueAtTime(f0 * 0.6, t); o.frequency.exponentialRampToValueAtTime(f0 * 1.6, t + 0.07 + size * 0.04);
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.12 * size, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22 + size * 0.1);
   o.connect(g).connect(master); o.start(t); o.stop(t + 0.4);
+}
+function whoosh(len = 1) {
+  if (!live()) return;
+  const { ctx, master, white } = audio, t = ctx.currentTime;
+  const s = ctx.createBufferSource(); s.buffer = white;
+  const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 0.8;
+  f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(1800, t + len * 0.6); f.frequency.exponentialRampToValueAtTime(200, t + len * 1.6);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.25, t + len * 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t + len * 1.8);
+  s.connect(f).connect(g).connect(master); s.start(t); s.stop(t + len * 2);
+  audio.lp.frequency.setTargetAtTime(160, t, 0.3); audio.lp.frequency.setTargetAtTime(380, t + len * 2, 0.6);
+}
+function splash() { if (!live()) return; whoosh(0.5); for (let i = 0; i < 4; i++) setTimeout(() => plop(0.3 + Math.random() * 0.5), i * 70); }
+function creak() {
+  if (!live()) return;
+  const { ctx, master } = audio, t = ctx.currentTime;
+  const o = ctx.createOscillator(); o.type = 'sawtooth';
+  o.frequency.setValueAtTime(140, t); o.frequency.linearRampToValueAtTime(95, t + 0.9);
+  const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 8;
+  const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.05, t + 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.0);
+  o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + 1.1);
+}
+function rattle() {
+  if (!live()) return;
+  const { ctx, master, white } = audio;
+  for (let i = 0; i < 3; i++) {
+    const t = ctx.currentTime + i * 0.09;
+    const s = ctx.createBufferSource(); s.buffer = white;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2400; f.Q.value = 4;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    s.connect(f).connect(g).connect(master); s.start(t); s.stop(t + 0.08);
+  }
 }
 let trailCool = 0;
 function trail(speed) { if (performance.now() > trailCool && Math.random() < 0.35) { trailCool = performance.now() + 180; plop(0.15 + speed * 0.15); } }
@@ -703,84 +1587,115 @@ soundBtn.addEventListener('click', () => {
   soundBtn.setAttribute('aria-pressed', String(soundOn));
 });
 
-// ---------------------------------------------------------------- resize
+// =====================================================================================
+// Resize + loop
+// =====================================================================================
 function resize() {
   const w = innerWidth, h = innerHeight, aspect = w / h;
   renderer.setSize(w, h);
   composer.setSize(w, h);
   lens.uniforms.uRes.value.set(w, h);
   camera.aspect = aspect;
-  camera.fov = aspect < 0.8 ? 68 : aspect < 1.2 ? 60 : 52;
+  camera.fov = aspect < 0.8 ? 70 : aspect < 1.2 ? 60 : 52;
   camera.updateProjectionMatrix();
-  water.getRenderTarget().setSize(Math.round(w * renderer.getPixelRatio() * reflScale), Math.round(h * renderer.getPixelRatio() * reflScale));
-  motes.material.uniforms.uScale.value = h * renderer.getPixelRatio() * 0.5;
+  for (const wtr of [poolWater, hallWater]) wtr.getRenderTarget().setSize(Math.round(w * renderer.getPixelRatio() * REFL_SCALE), Math.round(h * renderer.getPixelRatio() * REFL_SCALE));
+  MOTE_SCALE.value = h * renderer.getPixelRatio() * 0.5;
 }
 addEventListener('resize', resize);
 resize();
 
-// ---------------------------------------------------------------- loop
 const depthEl = document.getElementById('depth');
 const clock = new THREE.Clock();
-let simAcc = 0, dripAt = 0, firstFrame = true, lastDepth = '';
-const look = new THREE.Vector3();
-const parallax = reduceMotion ? 0.45 : 1;
+let dripAt = 0, firstFrame = true, lastDepth = '';
+const look = new V3();
 
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const t = clock.elapsedTime;
   U.uTime.value = t;
+  runTweens(dt * timeScale);
 
-  // camera: eased toward the pointer, with a slow underwater float
-  const ease = 1 - Math.exp(-dt * 2.2);
-  pointer.x += (pointer.tx - pointer.x) * ease;
-  pointer.y += (pointer.ty - pointer.y) * ease;
+  if (state === 'hall') {
+    hallZ += (hallZT - hallZ) * (1 - Math.exp(-dt * 3));
+    rig.pos.set(0, 1.55, hallZ);
+    rig.look.set(0, 1.45, hallZ - 12);
+  }
+
+  // camera: eased toward the pointer, with a slow float
+  const e = 1 - Math.exp(-dt * 2.2);
+  pointer.x += (pointer.tx - pointer.x) * e;
+  pointer.y += (pointer.ty - pointer.y) * e;
+  const par = rig.parallax * (reduceMotion ? 0.45 : 1);
   const bob = reduceMotion ? 0 : 1;
+  const inHall = active === hall;
+  const sway = inHall ? 0.5 : 1;
   camera.position.set(
-    BASE_POS.x + pointer.x * 0.55 * parallax + Math.sin(t * 0.23) * 0.06 * bob,
-    BASE_POS.y - pointer.y * 0.22 * parallax + Math.sin(t * 0.31) * 0.035 * bob,
-    BASE_POS.z + Math.sin(t * 0.17) * 0.08 * bob,
+    rig.pos.x + pointer.x * (inHall ? 0.25 : 0.55) * par + Math.sin(t * 0.23) * 0.06 * bob * sway,
+    rig.pos.y - pointer.y * (inHall ? 0.12 : 0.22) * par + Math.sin(t * 0.31) * 0.035 * bob * sway,
+    rig.pos.z + Math.sin(t * 0.17) * 0.08 * bob * sway,
   );
-  look.set(BASE_LOOK.x + pointer.x * 2.6 * parallax, BASE_LOOK.y - pointer.y * 1.4 * parallax, BASE_LOOK.z);
+  look.set(rig.look.x + pointer.x * (inHall ? 3.2 : 2.6) * par, rig.look.y - pointer.y * (inHall ? 1.6 : 1.4) * par, rig.look.z);
   camera.lookAt(look);
-  camera.rotateZ(Math.sin(t * 0.21) * 0.004 * bob - pointer.x * 0.012 * parallax);
+  camera.rotateZ(Math.sin(t * 0.21) * 0.004 * bob - pointer.x * 0.012 * par);
 
-  // ambient drips so the water is never fully still
+  // doors: hover glow, swing, rattle
+  for (const d of doors) {
+    const target = hotDoor === d && state === 'hall' ? 1 : 0;
+    d.hover += (target - d.hover) * (1 - Math.exp(-dt * 8));
+    if (state === 'hall') d.glowMat.emissiveIntensity = 0.05 + d.hover * (d.room ? 2.2 : 0.4);
+    d.plaqueMat.emissiveIntensity = d.hover * 0.6;
+    d.rattle = Math.max(0, d.rattle - dt * 2.5);
+    d.pivot.rotation.y = d.side * 1.45 * ease.io(d.open) + Math.sin(t * 60) * 0.012 * d.rattle;
+  }
+
+  // ambient drips; the hallway water keeps lapping gently
   if (t > dripAt) {
-    dripAt = t + 0.5 + Math.random() * 1.4;
-    addDrop(-3.5 + Math.random() * 6, -16 + Math.random() * 20, 0.12 + Math.random() * 0.1, 0.004 + Math.random() * 0.006);
+    dripAt = t + (inHall ? 0.25 : 0.5) + Math.random() * (inHall ? 0.5 : 1.4);
+    if (inHall) hallSim.addDrop(-1.2 + Math.random() * 2.4, camera.position.z - 1 - Math.random() * 14, 0.15 + Math.random() * 0.15, 0.003 + Math.random() * 0.004);
+    else poolSim.addDrop(-3.5 + Math.random() * 6, -16 + Math.random() * 20, 0.12 + Math.random() * 0.1, 0.004 + Math.random() * 0.006);
   }
 
-  // simulation at a fixed 60 Hz
-  simAcc += dt;
-  let steps = 0;
-  while (simAcc >= 1 / 60 && steps < 3) {
-    while (drops.length) {
-      const [u, v, r, s] = drops.shift();
-      dropMat.uniforms.center.value.set(u, v); dropMat.uniforms.radius.value = r; dropMat.uniforms.strength.value = s;
-      simPass(dropMat);
+  fx.wet = Math.max(0, fx.wet - dt * 0.45);
+  lens.uniforms.uDive.value = fx.dive;
+  lens.uniforms.uFlash.value = fx.flash;
+  lens.uniforms.uWet.value = fx.wet;
+
+  if (!paused) {
+    if (inHall) {
+      hallSim.update(dt);
+      hallWater.visible = camera.position.y > H_WATER;
+      underside.visible = !hallWater.visible;
+    } else {
+      poolSim.update(dt);
+      orientShafts();
     }
-    simPass(stepMat);
-    simAcc -= 1 / 60; steps++;
+    composer.render();
   }
-  renderer.setRenderTarget(null);
-  U.uHeight.value = simA.texture;
-
-  orientShafts(camera);
-  composer.render();
 
   const d = (0.3 + Math.max(0, (pointer.x + 1) * 0.5) * 1.6).toFixed(2);
   if (d !== lastDepth) { depthEl.textContent = `Depth ${d} m`; lastDepth = d; }
 
-  if (firstFrame) { firstFrame = false; requestAnimationFrame(() => document.getElementById('veil').classList.add('gone')); }
+  if (firstFrame) {
+    firstFrame = false;
+    requestAnimationFrame(() => document.getElementById('veil').classList.add('gone'));
+    // warm up the hallway's shaders so the dive doesn't stutter
+    setTimeout(() => { try { renderer.compileAsync ? renderer.compileAsync(hall, camera) : renderer.compile(hall, camera); } catch (_) {} }, 1200);
+  }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
-// test hook: ?debug lets a headless browser run the ripple simulation forward
+// test hook: ?debug lets a headless browser jump between scenes and run the water forward
 if (new URLSearchParams(location.search).has('debug')) {
-  window.__pool = {
-    splash(x, z) { addDrop(x, z, 0.55, 0.05); },
-    step(n) { for (let i = 0; i < n; i++) { while (drops.length) { const [u, v, r, s] = drops.shift(); dropMat.uniforms.center.value.set(u, v); dropMat.uniforms.radius.value = r; dropMat.uniforms.strength.value = s; simPass(dropMat); } simPass(stepMat); } renderer.setRenderTarget(null); },
+  window.__dbg = {
+    hall(z = HALL_Z0) { setScene(hall); hallZ = hallZT = z; rig.parallax = 1; fx.dive = 0; setState('hall'); },
+    splash(x, z) { simFor().addDrop(x, z, 0.5, 0.04); },
+    step(n) { for (let i = 0; i < n; i++) simFor().step(); renderer.setRenderTarget(null); },
+    hover(i) { setHot(doors.filter((d) => d.room)[i]); },
+    enter(i) { return enterDoor(doors.filter((d) => d.room)[i]); },
+    dive, fx, rig,
+    slow(v) { timeScale = v; },
+    pose(sc, pos, lk, dv = 0, wet = 0) { setScene(sc === 'hall' ? hall : pool); setState('diving'); rig.parallax = 0.2; rig.pos.set(...pos); rig.look.set(...lk); fx.dive = dv; fx.wet = wet; },
   };
 }
 </script>
