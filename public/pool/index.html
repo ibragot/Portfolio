@@ -7,7 +7,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
   /* Layout: full-bleed WebGL world; each scene gets a quiet HUD pinned to the corners, plus one centred moment. */
   :root {
@@ -24,10 +24,11 @@
     color-scheme: dark;
   }
   html, body { height: 100%; margin: 0; }
+  [hidden] { display: none !important; }
   body { background: var(--abyss); color: var(--ink); overflow: hidden; font-family: var(--mono); }
   button { font: inherit; color: inherit; }
   #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
-  body[data-state="hall"] #scene { cursor: default; }
+  body[data-state="hall"] #scene, body[data-state^="lobby"] #scene { cursor: default; }
   body.door-hover #scene { cursor: pointer; }
 
   .layer {
@@ -41,7 +42,7 @@
   @media (min-width: 720px) {
     .layer { padding-left: max(40px, env(safe-area-inset-left, 0px)); padding-right: max(40px, env(safe-area-inset-right, 0px)); padding-block: 32px 34px; }
   }
-  body[data-state="pool"] .pool-ui, body[data-state="hall"] .hall-ui { opacity: 1; visibility: visible; transition: opacity 1s ease 0.15s, visibility 0s; }
+  body[data-state="pool"] .pool-ui, body[data-state="hall"] .hall-ui, body[data-state="lobby"] .desk-ui, body[data-state="lobby-focus"] .desk-ui { opacity: 1; visibility: visible; transition: opacity 1s ease 0.15s, visibility 0s; }
 
   .label {
     font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim);
@@ -98,9 +99,9 @@
   .bottom-row { position: absolute; left: 0; right: 0; bottom: 0; padding: inherit; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
 
   /* ---- hallway */
-  .hall-ui { --ink-dim: rgba(245, 230, 205, 0.7); --line: rgba(240, 215, 170, 0.3); --glow: var(--brass); }
-  .hall-ui .label .dot { background: var(--brass); box-shadow: 0 0 10px var(--brass); }
-  .hall-ui .chip-btn { background: rgba(40, 26, 12, 0.4); }
+  .hall-ui, .desk-ui { --ink-dim: rgba(245, 230, 205, 0.7); --line: rgba(240, 215, 170, 0.3); --glow: var(--brass); }
+  .hall-ui .label .dot, .desk-ui .label .dot { background: var(--brass); box-shadow: 0 0 10px var(--brass); }
+  .hall-ui .chip-btn, .desk-ui .chip-btn { background: rgba(40, 26, 12, 0.4); }
   .caption {
     position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%);
     text-align: center; display: grid; gap: 6px; justify-items: center; width: min(90vw, 520px);
@@ -182,6 +183,69 @@
   .email-row code { font-family: var(--display); font-size: clamp(26px, 4.5vw, 46px); user-select: all; overflow-wrap: anywhere; }
   .copy { cursor: pointer; font: 500 11px/1 var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: #1a120a; background: var(--room-accent); border: 0; padding: 10px 14px; border-radius: 2px; }
 
+  /* ---- hallway heading */
+  .pick { position: absolute; left: 50%; top: 16%; transform: translateX(-50%); width: min(92vw, 640px); text-align: center; display: grid; gap: 10px; justify-items: center; }
+  .pick h2 { font-family: var(--display); font-weight: 400; margin: 0; font-size: clamp(46px, 6.6vw, 96px); line-height: 0.95; color: #f7ecd6; text-wrap: balance; text-shadow: 0 0 40px rgba(255, 205, 130, 0.35), 0 2px 18px rgba(0, 0, 0, 0.55); }
+  .pick h2 em { font-style: italic; color: var(--brass); }
+  .pick p { margin: 0; max-width: 40ch; font-size: 12px; line-height: 1.6; letter-spacing: 0.06em; color: var(--ink-dim); }
+  @media (max-width: 640px) { .pick { top: 12%; } }
+
+  /* ---- front desk (Room 106) */
+  .desk-caption { bottom: 44px; transition: opacity 0.4s ease; }
+  body[data-state="lobby-focus"] .desk-caption { opacity: 0; }
+  .desk-panel { position: fixed; z-index: 8; opacity: 0; transition: opacity 0.45s ease, transform 0.5s cubic-bezier(.2,.8,.2,1); }
+  .desk-panel.open { opacity: 1; }
+  .desk-panel input, .desk-panel textarea, .desk-panel button { font: inherit; }
+  .desk-panel :focus-visible { outline: 2px solid #3b82c4; outline-offset: 2px; }
+
+  .pc { display: grid; grid-template-rows: auto 1fr auto; background: #e4eaf1; color: #1d2733; font-family: Helvetica, Arial, sans-serif; overflow: hidden; border-radius: 2px; box-shadow: 0 0 60px rgba(160, 200, 255, 0.25); }
+  .pc.fit { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(94vw, 760px); height: min(86vh, 540px); font-size: 13px; }
+  .pc-top { display: flex; align-items: center; gap: 0.8em; padding: 0.7em 1em; background: #fff; font-size: 1.1em; }
+  .pc-top b { font-weight: 600; }
+  .pc-top .ver { color: #6b7684; font-size: 0.8em; }
+  .pc-top .tree { width: 1.1em; height: 1.1em; background: #2f6b4f; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+  .pc-x { margin-left: auto; cursor: pointer; background: #2e3d50; color: #e8eef6; border: 0; padding: 0.45em 0.9em; border-radius: 2px; font-size: 0.8em !important; }
+  .pc-body { display: grid; grid-template-columns: 21% 1fr; min-height: 0; }
+  .pc-side { margin: 0; padding: 0.8em 0; list-style: none; background: #2e3d50; color: #e8eef6; font-size: 0.85em; }
+  .pc-side li { padding: 0.55em 1.2em; }
+  .pc-side li.on { background: #4a6383; }
+  .pc-main { padding: 1em 1.4em; overflow: auto; min-width: 0; }
+  .pc-crumb { margin: 0 0 0.3em; color: #6b7684; font-size: 0.8em; }
+  .pc-main h3 { margin: 0 0 0.6em; font-size: 1.5em; font-weight: 600; }
+  .pc-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+  .pc-table th { text-align: left; font-weight: 500; color: #5b6675; width: 24%; padding: 0.5em 0.6em; background: #cfd8e3; border-bottom: 1px solid #b9c4d2; vertical-align: top; }
+  .pc-table td { padding: 0.5em 0.6em; background: #f4f7fa; border-bottom: 1px solid #d6dee8; overflow-wrap: anywhere; }
+  .pc-table a { color: #1f5fa8; }
+  .pc-copy { margin-left: 0.6em; cursor: pointer; background: #1f5fa8; color: #fff; border: 0; border-radius: 2px; padding: 0.2em 0.6em; font-size: 0.8em !important; }
+  .pc-status { padding: 0.5em 1em; background: #d3dbe5; color: #4b5666; font-size: 0.75em; }
+  @media (max-width: 640px) { .pc-body { grid-template-columns: 1fr; } .pc-side { display: none; } }
+
+  .phone { left: 50%; top: 50%; transform: translate(-50%, -46%); width: min(92vw, 400px); box-sizing: border-box; background: #191b1e; color: #e9e6df; border-radius: 14px; padding: 20px; display: grid; gap: 12px; font-family: var(--mono); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6); }
+  .phone.open { transform: translate(-50%, -50%); }
+  .lcd { background: #a9b39a; color: #22281c; border-radius: 4px; padding: 10px 12px; display: flex; justify-content: space-between; gap: 12px; font-size: 12px; letter-spacing: 0.1em; box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.35); }
+  .phone h3 { font-family: var(--display); font-weight: 400; font-size: 34px; margin: 0; }
+  .phone p { margin: 0; font-size: 12px; line-height: 1.6; color: rgba(233, 230, 223, 0.75); overflow-wrap: anywhere; }
+  .phone label { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(233, 230, 223, 0.7); }
+  .phone input, .phone textarea { width: 100%; box-sizing: border-box; background: #0f1012; border: 1px solid #3a3d42; color: #f1ede4; border-radius: 4px; padding: 9px 10px; font-size: 13px; resize: vertical; }
+  .phone form { display: grid; gap: 8px; }
+  .phone .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+  .btn-l { cursor: pointer; border: 0; border-radius: 4px; padding: 10px 14px; font: 500 11px/1 var(--mono) !important; letter-spacing: 0.14em; text-transform: uppercase; background: #e8c98a; color: #1b140a; }
+  .btn-ghost { background: transparent; color: #e9e6df; border: 1px solid #45484d; }
+
+  .folder { left: 50%; top: 50%; transform: translate(-50%, -46%) rotate(-1deg); width: min(92vw, 520px); font-family: var(--mono); color: #2a2216; }
+  .folder.open { transform: translate(-50%, -50%) rotate(-1deg); }
+  .folder .tab { display: inline-block; background: #d9bb80; padding: 8px 16px 6px; border-radius: 6px 6px 0 0; font-size: 12px; letter-spacing: 0.12em; margin-left: 24px; }
+  .folder .sheet { background: #e3c68d; padding: 14px; border-radius: 4px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55); }
+  .folder .paper { background: #f6f1e4; padding: 22px 24px; display: grid; gap: 14px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); max-height: 70vh; overflow: auto; }
+  .folder .stamp { justify-self: start; border: 2px solid #9c2b23; color: #9c2b23; padding: 4px 10px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; transform: rotate(-3deg); margin: 0; }
+  .folder h3 { font-family: var(--display); font-weight: 400; font-size: 36px; margin: 0; }
+  .folder dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; font-size: 12px; line-height: 1.5; }
+  .folder dt { color: #7a6a4f; text-transform: uppercase; letter-spacing: 0.12em; font-size: 11px; padding-top: 1px; }
+  .folder dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .folder a { color: #1f4f8a; }
+  .folder .btn-l { justify-self: start; background: #2a2216; color: #f6f1e4; }
+  @media (max-width: 480px) { .folder dl { grid-template-columns: 1fr; gap: 2px; } .folder dd { margin-bottom: 8px; } }
+
   #veil {
     position: fixed; inset: 0; z-index: 20; background: var(--abyss); pointer-events: none;
     display: grid; place-items: center; transition: opacity 2.4s ease;
@@ -226,11 +290,78 @@
     <p class="label"><span class="dot"></span>Liminal Hotel · Floor B1</p>
     <div class="stack under-global"><button class="chip-btn" id="surface" type="button">Back to the pool</button></div>
   </div>
+  <div class="pick">
+    <h2>Pick a <em>door</em></h2>
+    <p>Six rooms down this hall. Each one holds a different part of my work.</p>
+  </div>
   <div class="caption" aria-live="polite">
     <div class="room-name" id="cap-name"></div>
-    <div class="room-meta" id="cap-meta">Scroll to walk · Choose a door</div>
+    <div class="room-meta" id="cap-meta">Scroll to walk</div>
   </div>
   <nav class="directory" aria-label="Rooms" id="directory"></nav>
+</div>
+
+<!-- Room 106: the front desk -->
+<div class="layer desk-ui">
+  <div class="bar">
+    <p class="label"><span class="dot"></span>Liminal Hotel · Room 106 · Front desk</p>
+    <div class="stack under-global"><button class="chip-btn" id="desk-back" type="button">Back to the hallway</button></div>
+  </div>
+  <div class="caption desk-caption" aria-live="polite">
+    <div class="room-name" id="desk-name"></div>
+    <div class="room-meta" id="desk-meta">Use the computer, the phone or the files</div>
+  </div>
+</div>
+
+<div class="desk-panel pc" id="pc-panel" role="dialog" aria-label="Front desk computer" hidden>
+  <div class="pc-top"><span class="tree" aria-hidden="true"></span><b>Liminal Hotel</b><span class="ver">Front Desk 2.4</span><button class="pc-x" type="button" data-close>Log off</button></div>
+  <div class="pc-body">
+    <ul class="pc-side"><li>Reservations</li><li>Check-ins</li><li>Check-outs</li><li class="on">Guest records</li><li>Billing</li><li>Reports</li><li>Settings</li></ul>
+    <div class="pc-main">
+      <p class="pc-crumb">Guest records › Room 106</p>
+      <h3>Noureldin Ibrahim</h3>
+      <table class="pc-table">
+        <tr><th>Status</th><td>Open to internships, collaborations and good conversations</td></tr>
+        <tr><th>Email</th><td>nourmgi04@gmail.com<button class="pc-copy" type="button" data-copy>Copy</button></td></tr>
+        <tr><th>GitHub</th><td><a href="https://github.com/ibragot" target="_blank" rel="noopener">github.com/ibragot</a></td></tr>
+        <tr><th>LinkedIn</th><td><a href="https://linkedin.com/in/noureldin-ibrahim" target="_blank" rel="noopener">linkedin.com/in/noureldin-ibrahim</a></td></tr>
+        <tr><th>Location</th><td>Ottawa, Ontario</td></tr>
+        <tr><th>Studies</th><td>University of Ottawa · Biomedical Science, intended major Computer Science · Expected 2028</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="pc-status">Night shift · 3:12 AM · 1 guest at the desk</div>
+</div>
+
+<div class="desk-panel phone" id="phone-panel" role="dialog" aria-label="Desk phone" hidden>
+  <div class="lcd"><span>LINE 1 · FRONT DESK</span><span>3:12 AM</span></div>
+  <h3>Leave a message</h3>
+  <p>No one is at the desk right now. Write a message and it opens in your email app, addressed to Noureldin.</p>
+  <form id="msg-form">
+    <label for="msg-name">Your name</label>
+    <input id="msg-name" name="name" autocomplete="name">
+    <label for="msg-body">Message</label>
+    <textarea id="msg-body" name="message" rows="4"></textarea>
+    <div class="row"><button class="btn-l" type="submit">Send message</button><button class="btn-l btn-ghost" type="button" data-close>Hang up</button></div>
+  </form>
+  <p id="msg-status">Or write directly to <code>nourmgi04@gmail.com</code> <button class="btn-l btn-ghost" type="button" data-copy>Copy</button></p>
+</div>
+
+<div class="desk-panel folder" id="file-panel" role="dialog" aria-label="Guest file" hidden>
+  <span class="tab">IBRAHIM, N. · 106</span>
+  <div class="sheet"><div class="paper">
+    <p class="stamp">Guest file</p>
+    <h3>Noureldin Ibrahim</h3>
+    <dl>
+      <dt>Occupation</dt><dd>Software engineer, CS at uOttawa</dd>
+      <dt>GitHub</dt><dd><a href="https://github.com/ibragot" target="_blank" rel="noopener">github.com/ibragot ↗</a></dd>
+      <dt>LinkedIn</dt><dd><a href="https://linkedin.com/in/noureldin-ibrahim" target="_blank" rel="noopener">in/noureldin-ibrahim ↗</a></dd>
+      <dt>Email</dt><dd>nourmgi04@gmail.com</dd>
+      <dt>Based in</dt><dd>Ottawa, Ontario</dd>
+      <dt>On file</dt><dd>Aegis · AI Movie Recommender · Tilawah · MSA Library System · Wizard Duel</dd>
+    </dl>
+    <button class="btn-l" type="button" data-close>Close the folder</button>
+  </div></div>
 </div>
 
 <!-- Behind each door -->
@@ -261,6 +392,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const V3 = THREE.Vector3;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -342,7 +474,7 @@ const ROOMS = [
     title: 'Built against the <em>clock</em>.',
     body: () => `<div class="room-grid">${projectCard({ ...PROJECTS[2], kind: 'Quran.com Hackathon' })}</div>
       <p class="lede">More hackathon builds will be added here.</p>` },
-  { key: 'contact', label: 'Contact', no: 106, place: 'The Front Desk', bg: '#19140e', accent: '#f1d6a2', flash: [1.75, 1.55, 1.2],
+  { key: 'contact', label: 'Contact', no: 106, place: 'The Front Desk', scene3d: true, bg: '#19140e', accent: '#f1d6a2', flash: [1.75, 1.55, 1.2],
     title: 'Ring the <em>bell</em>.',
     body: () => `<p class="lede">Open to internships, collaborations and good conversations about games or machine learning.</p>
       <div class="email-row"><code id="email">${PROFILE.email}</code><button class="copy" id="copy-email" type="button">Copy email</button></div>
@@ -959,7 +1091,7 @@ function patternTexture(bg, ink, shade, repeat, noiseAmt) {
   return canvasTex(c, { repeat });
 }
 const paperTex = patternTexture('#8d7448', 'rgba(214,186,128,0.55)', 'rgba(60,42,18,0.3)', 1.7, 14);
-const carpetTex = patternTexture('#18253b', 'rgba(70,102,150,0.6)', 'rgba(5,10,20,0.4)', 1.2, 10);
+const carpetTex = patternTexture('#11344f', 'rgba(70,150,200,0.55)', 'rgba(2,10,22,0.45)', 1.2, 10);
 
 function patchHall(mat, amt = 1) {
   mat.onBeforeCompile = (sh) => {
@@ -1150,17 +1282,595 @@ const doorLight = new THREE.PointLight(0xffe2b0, 0, 6, 2); hall.add(doorLight);
 const hallSim = new RippleSim(new THREE.Vector2(-HW, HZ1), new THREE.Vector2(HW * 2, HZ0 - HZ1), 48, 1180);
 const hallWater = makeWater(hall, hallSim, H_WATER, {
   fogColor: HFOG, fogDensity: 0.05, glowDir: new V3(0, 0, -1), glowColor: HFOG,
-  tint: new V3(1.0, 0.92, 0.8), deep: new V3(0.004, 0.014, 0.03), reflMix: 0.28, alpha: new THREE.Vector2(0.62, 0.96),
+  tint: new V3(0.72, 0.9, 1.1), deep: new V3(0.01, 0.06, 0.13), reflMix: 0.22, alpha: new THREE.Vector2(0.66, 0.96),
   shimmer: 0.006, normal: 40, lightDir: new V3(0, 0.9, -0.42),
 });
 // the surface seen from below, for the moment you come up through it
-const underside = new THREE.Mesh(new THREE.PlaneGeometry(HW * 2, HZ0 - HZ1), new THREE.MeshBasicMaterial({ color: 0x3f7896, transparent: true, opacity: 0.75, side: THREE.BackSide }));
+const underside = new THREE.Mesh(new THREE.PlaneGeometry(HW * 2, HZ0 - HZ1), new THREE.MeshBasicMaterial({ color: 0x3a8ab8, transparent: true, opacity: 0.75, side: THREE.BackSide }));
 underside.rotation.x = -Math.PI / 2; underside.position.set(0, H_WATER - 0.002, (HZ0 + HZ1) / 2);
 hall.add(underside);
 makeMotes(hall, isMobile ? 120 : 220, new THREE.Box3(new V3(-1.3, 0.3, -30), new V3(1.3, 3.2, 6)), new V3(1.0, 0.82, 0.55), 0.7);
 
 // =====================================================================================
-// Post: bloom, then an underwater lens that also handles the dive and door flashes
+// 3D bubbles and the splash crown
+// =====================================================================================
+const UP = new V3(0, 1, 0);
+const BUBBLE_VS = /* glsl */`
+  varying vec3 vN; varying vec3 vV; varying float vDepth;
+  void main(){
+    mat4 mw = modelMatrix * instanceMatrix;
+    vec4 mv = viewMatrix * mw * vec4(position, 1.0);
+    vN = normalize(mat3(viewMatrix) * mat3(mw) * normal);
+    vV = normalize(-mv.xyz);
+    vDepth = -mv.z;
+    gl_Position = projectionMatrix * mv;
+  }`;
+const BUBBLE_FS = /* glsl */`
+  uniform vec3 uTint; uniform float uSolid; varying vec3 vN; varying vec3 vV; varying float vDepth;
+  void main(){
+    vec3 n = normalize(vN);
+    float f = 1.0 - abs(dot(n, vV));
+    float rim = pow(f, 2.2);
+    float spec = pow(max(dot(reflect(-normalize(vec3(-0.4, 0.75, 0.5)), n), vV), 0.0), 70.0);
+    float spec2 = pow(max(dot(reflect(-normalize(vec3(0.5, -0.5, 0.7)), n), vV), 0.0), 24.0) * 0.3;
+    vec3 film = 0.5 + 0.5 * cos(6.2831 * (f * 1.4 + vec3(0.0, 0.33, 0.67)));
+    vec3 col = uTint * (0.1 + rim * 1.15) + film * rim * 0.16 + vec3(1.0) * (spec * 1.8 + spec2);
+    float a = clamp(uSolid * 0.3 + 0.05 + rim * 0.85 + spec, 0.0, 1.0);
+    a *= smoothstep(30.0, 4.0, vDepth) * smoothstep(0.04, 0.2, vDepth);
+    gl_FragColor = vec4(col, a);
+  }`;
+const bubbleMat = new THREE.ShaderMaterial({ uniforms: { uTint: { value: new V3(0.7, 0.9, 1.0) }, uSolid: { value: 0 } }, vertexShader: BUBBLE_VS, fragmentShader: BUBBLE_FS, transparent: true, depthWrite: false });
+const dropletMat = new THREE.ShaderMaterial({ uniforms: { uTint: { value: new V3(0.75, 0.92, 1.0) }, uSolid: { value: 1 } }, vertexShader: BUBBLE_VS, fragmentShader: BUBBLE_FS, transparent: true, depthWrite: false });
+
+const _bm = new THREE.Matrix4(), _bq = new THREE.Quaternion(), _bs = new V3(), _bp = new V3();
+class BubbleField {
+  constructor(max) {
+    this.max = max; this.list = []; this.top = Infinity;
+    this.mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 20, 14), bubbleMat, max);
+    this.mesh.frustumCulled = false; this.mesh.count = 0; this.mesh.renderOrder = 4;
+  }
+  attach(scene, top = Infinity) { scene.add(this.mesh); this.top = top; }
+  clear() { this.list.length = 0; this.mesh.count = 0; }
+  spawn(pos, vel, r, life) {
+    if (this.list.length >= this.max) this.list.shift();
+    this.list.push({ pos: pos.clone(), vel: vel.clone(), r, life, age: 0, ph: Math.random() * 6.283 });
+  }
+  burst(center, n, spread, up = 1) {
+    for (let i = 0; i < n; i++) {
+      const r = 0.005 + Math.pow(Math.random(), 3) * 0.055;
+      _bp.set((Math.random() - 0.5) * spread, (Math.random() - 0.5) * spread * 0.7, (Math.random() - 0.5) * spread).add(center);
+      this.spawn(_bp, new V3((Math.random() - 0.5) * 0.8, (0.2 + Math.random() * 1.1) * up, (Math.random() - 0.5) * 0.8), r, 2 + Math.random() * 3);
+    }
+  }
+  update(dt) {
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const b = this.list[i];
+      b.age += dt;
+      const terminal = 0.3 + b.r * 20;              // big bubbles rise faster
+      b.vel.y += (terminal - b.vel.y) * Math.min(1, dt * 2.2);
+      const drag = Math.max(0, 1 - dt * 1.6);
+      b.vel.x *= drag; b.vel.z *= drag;
+      b.pos.addScaledVector(b.vel, dt);
+      if (b.age > b.life || b.pos.y > this.top - b.r) this.list.splice(i, 1);
+    }
+    let n = 0;
+    for (const b of this.list) {
+      const grow = Math.min(1, b.age * 8) * Math.min(1, (b.life - b.age) * 3);
+      const w = 1 + Math.sin(b.age * 18 + b.ph) * 0.09;   // wobble as they rise
+      _bp.set(b.pos.x + Math.sin(b.age * 5 + b.ph) * b.r * 2.5, b.pos.y, b.pos.z + Math.cos(b.age * 4.3 + b.ph) * b.r * 2.5);
+      _bs.set(b.r * w * grow, (b.r / w) * 0.9 * grow, b.r * w * grow);
+      _bm.compose(_bp, _bq, _bs);
+      this.mesh.setMatrixAt(n++, _bm);
+    }
+    this.mesh.count = n;
+    this.mesh.instanceMatrix.needsUpdate = true;
+  }
+}
+const bubbles = new BubbleField(420);
+let bubbleRate = 0, bubbleAcc = 0;
+
+// the crown of water that parts around you as you break the surface
+const crownMat = new THREE.ShaderMaterial({
+  uniforms: { uT: { value: 2 } },
+  vertexShader: /* glsl */`
+    uniform float uT; varying vec3 vN; varying vec3 vV; varying float vH; varying float vA;
+    void main(){
+      float h = position.y + 0.5;
+      float ang = atan(position.z, position.x);
+      float spikes = 0.7 + 0.2 * sin(ang * 13.0 + 1.7) * sin(ang * 7.0 - 0.4) + 0.12 * sin(ang * 29.0 + 2.0);
+      float k = clamp(uT, 0.0, 1.0);
+      float rise = sin(k * 3.14159);
+      float rad = mix(0.22, 1.8, pow(k, 0.5)) * (1.0 + h * 0.45 * k);
+      vec3 p = vec3(cos(ang) * rad, h * rise * spikes, sin(ang) * rad);
+      vH = h; vA = 1.0 - smoothstep(0.55, 1.0, k);
+      vec4 mv = modelViewMatrix * vec4(p, 1.0);
+      vN = normalize(normalMatrix * vec3(cos(ang), 0.35, sin(ang)));
+      vV = normalize(-mv.xyz);
+      gl_Position = projectionMatrix * mv;
+    }`,
+  fragmentShader: /* glsl */`
+    varying vec3 vN; varying vec3 vV; varying float vH; varying float vA;
+    void main(){
+      float f = 1.0 - abs(dot(normalize(vN), vV));
+      float streak = 0.5 + 0.5 * sin(atan(vV.x, vV.z) * 3.0 + vH * 9.0) * sin(vH * 23.0);
+      float a = (0.38 + pow(f, 1.2) * 0.55 + streak * 0.12) * vA * (1.0 - smoothstep(0.65, 1.0, vH));
+      vec3 col = mix(vec3(0.12, 0.42, 0.58), vec3(0.88, 0.97, 1.0), pow(f, 1.3) * 0.8 + streak * 0.25) * 1.15;
+      gl_FragColor = vec4(col, a);
+    }`,
+  transparent: true, depthWrite: false, side: THREE.DoubleSide,
+});
+const crown = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 72, 10, true), crownMat);
+crown.frustumCulled = false; crown.renderOrder = 3; crown.visible = false;
+const splashFx = {
+  t: 2, y: 0, list: [],
+  drops: new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8), dropletMat, 180),
+  start(scene, at, scale = 1) {
+    scene.add(crown, this.drops);
+    crown.position.copy(at); crown.scale.setScalar(scale);
+    this.t = 0; this.y = at.y; this.list.length = 0;
+    for (let i = 0; i < 170; i++) {
+      const a = Math.random() * Math.PI * 2, sp = (0.8 + Math.random() * 2.4) * scale;
+      this.list.push({
+        pos: new V3(at.x + Math.cos(a) * 0.3 * scale, at.y + 0.02, at.z + Math.sin(a) * 0.3 * scale),
+        vel: new V3(Math.cos(a) * sp, (1.6 + Math.random() * 3.2) * scale, Math.sin(a) * sp),
+        r: 0.006 + Math.random() * 0.022,
+      });
+    }
+  },
+  update(dt) {
+    this.t += dt / 0.95;
+    crownMat.uniforms.uT.value = this.t;
+    crown.visible = this.t < 1;
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const d = this.list[i];
+      d.vel.y -= 9.8 * dt;
+      d.pos.addScaledVector(d.vel, dt);
+      if (d.pos.y < this.y - 0.02) this.list.splice(i, 1);
+    }
+    let n = 0;
+    for (const d of this.list) { _bs.setScalar(d.r); _bm.compose(d.pos, _bq, _bs); this.drops.setMatrixAt(n++, _bm); }
+    this.drops.count = n; this.drops.instanceMatrix.needsUpdate = true;
+    this.drops.visible = n > 0;
+  },
+};
+splashFx.drops.frustumCulled = false; splashFx.drops.count = 0;
+
+function orientBillboards(list, axis) {
+  for (const s of list) {
+    _to.subVectors(camera.position, s.userData.center);
+    _x.crossVectors(axis, _to).normalize();
+    _z.crossVectors(_x, axis).normalize();
+    _m.makeBasis(_x, axis, _z);
+    s.quaternion.setFromRotationMatrix(_m);
+    s.position.copy(s.userData.center);
+  }
+}
+
+// =====================================================================================
+// SCENE 3 — the deep water between the pool and the hotel
+// =====================================================================================
+const deep = new THREE.Scene();
+const DFOG = new THREE.Color(0x053049);
+deep.background = DFOG.clone();
+deep.fog = new THREE.FogExp2(DFOG, 0.07);
+const deepSurfMat = new THREE.ShaderMaterial({
+  uniforms: { uTime: U.uTime, uWarm: { value: 0 }, uFog: { value: DFOG } },
+  vertexShader: `varying vec3 vWPos; void main(){ vWPos = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vWPos, 1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform float uTime, uWarm; uniform vec3 uFog; varying vec3 vWPos;
+    ${CAUSTIC_FUNCS}
+    void main(){
+      vec3 V = normalize(vWPos - cameraPosition);
+      float win = smoothstep(0.55, 0.8, V.y);           // Snell's window: bright straight up, mirror-dark at an angle
+      float c = caustic2(vWPos.xz * 0.18 + vec2(uTime * 0.02, 0.0), uTime * 0.6);
+      vec3 sky = mix(vec3(0.35, 0.8, 1.0), vec3(0.95, 0.8, 0.55), uWarm);
+      vec3 col = mix(vec3(0.03, 0.2, 0.32), sky * 1.6, win) + sky * c * (0.6 + win);
+      float dist = length(vWPos - cameraPosition);
+      col = mix(col, uFog, 1.0 - exp(-0.0016 * dist * dist));
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+  side: THREE.DoubleSide,
+});
+const deepSurf = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), deepSurfMat);
+deepSurf.rotation.x = Math.PI / 2;
+deep.add(deepSurf);
+// a drowned colonnade of tiled pillars fading into the blue
+const deepTile = new THREE.MeshBasicMaterial({ map: TEX.map, color: 0x1b5a7a });
+box(deep, [-40, 40], [-9.2, -9], [-60, 30], deepTile, { cast: false, receive: false });
+for (let z = 6; z > -40; z -= 7) for (const x of [-6.5, 6.5]) box(deep, [x - 0.8, x + 0.8], [-9, 0], [z - 0.8, z + 0.8], deepTile, { cast: false, receive: false });
+const deepShafts = [];
+for (let i = 0; i < 12; i++) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.8 + Math.random() * 2.2, 16), shaftMat(Math.random(), 0.05 + Math.random() * 0.07, new V3(0.45, 0.85, 1.0)));
+  m.userData.center = new V3(-7 + Math.random() * 14, -6.5, 6 - Math.random() * 34);
+  m.frustumCulled = false; deepShafts.push(m); deep.add(m);
+}
+makeMotes(deep, isMobile ? 160 : 320, new THREE.Box3(new V3(-8, -9, -32), new V3(8, -0.3, 8)), new V3(0.5, 0.85, 1.0), 1.1);
+
+// =====================================================================================
+// SCENE 4 — Room 106, the front desk (Contact)
+// =====================================================================================
+const lobby = new THREE.Scene();
+const LFOG = new THREE.Color(0x15100a);
+lobby.background = LFOG.clone();
+lobby.fog = new THREE.FogExp2(LFOG, 0.03);
+{
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  lobby.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  lobby.environmentIntensity = 0.4;
+}
+const LX = 7, LZ0 = 6, LZ1 = -5, LH = 3.1, CZ = -1.0, DESK_Y = 0.74;
+const makeCanvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; };
+const mk = (geo, mat, x, y, z, parent = lobby) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); parent.add(m); return m; };
+const B = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+
+function woodTexture() {
+  const S = 512, [c, x] = makeCanvas(S, S), w = S / 4;
+  for (let i = 0; i < 4; i++) {
+    x.fillStyle = `hsl(${21 + Math.random() * 6}, ${44 + Math.random() * 10}%, ${16 + Math.random() * 5}%)`;
+    x.fillRect(i * w, 0, w, S);
+    for (let k = 0; k < 70; k++) {
+      x.strokeStyle = `rgba(${Math.random() < 0.5 ? '20,8,2' : '125,72,40'},${0.05 + Math.random() * 0.12})`;
+      x.lineWidth = 0.5 + Math.random() * 2.2;
+      const gx = i * w + Math.random() * w;
+      x.beginPath(); x.moveTo(gx, 0);
+      for (let y = 0; y <= S; y += 32) x.lineTo(gx + Math.sin(y * 0.02 + k) * 3 + (Math.random() - 0.5) * 2, y);
+      x.stroke();
+    }
+    x.fillStyle = 'rgba(0,0,0,0.55)'; x.fillRect(i * w, 0, 3, S);
+  }
+  return canvasTex(c, { repeat: 1 / 1.2 });
+}
+function marbleTexture(n, grout, base) {
+  const S = 1024, [c, x] = makeCanvas(S, S), T = S / n;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    x.save(); x.beginPath(); x.rect(i * T, j * T, T, T); x.clip();
+    x.fillStyle = `hsl(${base[0] + Math.random() * 6}, ${base[1]}%, ${base[2] + Math.random() * 5}%)`;
+    x.fillRect(i * T, j * T, T, T);
+    for (let k = 0; k < 18; k++) {
+      const soft = k < 6;
+      x.strokeStyle = soft ? `rgba(150,140,120,${0.05 + Math.random() * 0.06})` : `rgba(95,88,74,${0.1 + Math.random() * 0.18})`;
+      x.lineWidth = soft ? 8 + Math.random() * 14 : 0.6 + Math.random() * 2;
+      const sx = i * T + Math.random() * T, sy = j * T + Math.random() * T;
+      x.beginPath(); x.moveTo(sx, sy);
+      x.bezierCurveTo(sx + (Math.random() - 0.3) * T, sy + (Math.random() - 0.5) * T * 0.6, sx + (Math.random() - 0.2) * T, sy + (Math.random() - 0.5) * T, sx + (Math.random() * 0.8 + 0.2) * T, sy + (Math.random() - 0.5) * T * 0.8);
+      x.stroke();
+    }
+    x.restore();
+    if (grout) { x.strokeStyle = 'rgba(80,70,55,0.75)'; x.lineWidth = 3; x.strokeRect(i * T + 1.5, j * T + 1.5, T - 3, T - 3); }
+  }
+  return canvasTex(c, { repeat: 1 / 1.2 });
+}
+function ceilingTexture() {
+  const S = 512, [c, x] = makeCanvas(S, S);
+  x.fillStyle = '#d4cdbd'; x.fillRect(0, 0, S, S);
+  for (let i = 0; i < 5000; i++) { x.fillStyle = `rgba(90,80,60,${Math.random() * 0.12})`; x.fillRect(Math.random() * S, Math.random() * S, 1.5, 1.5); }
+  x.fillStyle = '#8f8878';
+  for (const p of [0, S / 2]) { x.fillRect(p, 0, 5, S); x.fillRect(0, p, S, 5); }
+  return canvasTex(c, { repeat: 1 / 1.2 });
+}
+function exitTexture() {
+  const [c, x] = makeCanvas(256, 96);
+  x.fillStyle = '#140404'; x.fillRect(0, 0, 256, 96);
+  x.fillStyle = '#ff3b2f'; x.font = '600 64px Helvetica, Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText('EXIT', 128, 52);
+  return canvasTex(c);
+}
+function paintingTexture(seed) {
+  const [c, x] = makeCanvas(512, 384);
+  const g = x.createLinearGradient(0, 0, 0, 384); g.addColorStop(0, '#8fa9b8'); g.addColorStop(0.55, '#e6d7b4'); g.addColorStop(1, '#c9b48a');
+  x.fillStyle = g; x.fillRect(0, 0, 512, 384);
+  x.fillStyle = '#7c8f7a'; x.beginPath(); x.moveTo(0, 384);
+  for (let i = 0; i <= 512; i += 16) x.lineTo(i, 205 + Math.sin(i * 0.013 + seed) * 22 + Math.sin(i * 0.05 + seed * 3) * 6);
+  x.lineTo(512, 384); x.fill();
+  x.fillStyle = '#56704a'; x.beginPath(); x.moveTo(0, 384);
+  for (let i = 0; i <= 512; i += 16) x.lineTo(i, 262 + Math.sin(i * 0.02 + seed * 2) * 12);
+  x.lineTo(512, 384); x.fill();
+  x.fillStyle = '#a7c2ca'; x.beginPath(); x.moveTo(180 + seed * 20, 384);
+  x.bezierCurveTo(260, 330, 220, 300, 300, 266); x.lineTo(316, 268); x.bezierCurveTo(255, 305, 300, 340, 290 + seed * 10, 384); x.fill();
+  for (let i = 0; i < 10; i++) {
+    const tx = 30 + Math.random() * 450, ty = 235 + Math.random() * 55, s = 16 + Math.random() * 30;
+    x.fillStyle = '#3b2a1a'; x.fillRect(tx - 2, ty - 4, 4, 14);
+    x.fillStyle = `rgba(38,${55 + Math.random() * 20},32,${0.75 + Math.random() * 0.25})`;
+    x.beginPath(); x.ellipse(tx, ty - s, s * 0.6, s, 0, 0, Math.PI * 2); x.fill();
+  }
+  x.fillStyle = 'rgba(120,90,40,0.2)'; x.fillRect(0, 0, 512, 384);
+  return canvasTex(c);
+}
+
+const woodPanel = new THREE.MeshStandardMaterial({ map: woodTexture(), roughness: 0.5 });
+const lobbyFloorMat = new THREE.MeshStandardMaterial({ map: marbleTexture(2, true, [40, 18, 70]), roughness: 0.3 });
+const counterMarble = new THREE.MeshStandardMaterial({ map: marbleTexture(1, false, [38, 6, 82]), roughness: 0.28 });
+const deskTopMat = new THREE.MeshStandardMaterial({ map: marbleTexture(1, false, [42, 10, 60]), roughness: 0.55 });
+const maroon = new THREE.MeshStandardMaterial({ color: 0x5c1c19, roughness: 0.5 });
+const ceilTile = new THREE.MeshStandardMaterial({ map: ceilingTexture(), roughness: 0.95 });
+const blackPl = new THREE.MeshStandardMaterial({ color: 0x16181b, roughness: 0.45 });
+const beigePl = new THREE.MeshStandardMaterial({ color: 0xcdc5b1, roughness: 0.6 });
+const manilaMat = new THREE.MeshStandardMaterial({ color: 0xdcbf86, roughness: 0.85 });
+const paperL = new THREE.MeshStandardMaterial({ color: 0xf0ece2, roughness: 0.9 });
+const plainWall = new THREE.MeshStandardMaterial({ color: 0xd6c39c, roughness: 0.85 });
+const trimL = new THREE.MeshStandardMaterial({ color: 0xe8dcc2, roughness: 0.5 });
+const brassL = new THREE.MeshStandardMaterial({ color: 0xc9a160, roughness: 0.25, metalness: 0.9 });
+const yellowNote = new THREE.MeshStandardMaterial({ color: 0xf2d24a, roughness: 0.9 });
+
+// shell: floor, ceiling, wood-panelled walls, the doorway you came in by
+box(lobby, [-LX, LX], [-0.1, 0], [LZ1, LZ0], lobbyFloorMat, { cast: false });
+box(lobby, [-LX, LX], [LH, LH + 0.1], [LZ1, LZ0 + 0.2], ceilTile, { cast: false });
+box(lobby, [-LX, LX], [0, LH], [LZ1 - 0.12, LZ1], woodPanel);
+box(lobby, [-LX - 0.12, -LX], [0, LH], [LZ1, LZ0], woodPanel);
+box(lobby, [LX, LX + 0.12], [0, LH], [LZ1, LZ0], woodPanel);
+box(lobby, [-LX, -0.65], [0, LH], [LZ0, LZ0 + 0.15], woodPanel);
+box(lobby, [0.65, LX], [0, LH], [LZ0, LZ0 + 0.15], woodPanel);
+box(lobby, [-0.65, 0.65], [2.35, LH], [LZ0, LZ0 + 0.15], woodPanel);
+boxAt(lobby, -0.69, 1.2, LZ0 - 0.01, 0.08, 2.4, 0.04, trimL);
+boxAt(lobby, 0.69, 1.2, LZ0 - 0.01, 0.08, 2.4, 0.04, trimL);
+boxAt(lobby, 0, 2.39, LZ0 - 0.01, 1.46, 0.08, 0.04, trimL);
+// the corridor beyond the doorway
+box(lobby, [-0.7, 0.7], [-0.1, 0], [LZ0, LZ0 + 16], carpetMat, { cast: false });
+box(lobby, [-0.85, -0.65], [0, 2.35], [LZ0 + 0.15, LZ0 + 16], plainWall, { cast: false });
+box(lobby, [0.65, 0.85], [0, 2.35], [LZ0 + 0.15, LZ0 + 16], plainWall, { cast: false });
+box(lobby, [-0.7, 0.7], [2.35, 2.45], [LZ0, LZ0 + 16], plainWall, { cast: false });
+box(lobby, [-0.7, 0.7], [0, 2.35], [LZ0 + 16, LZ0 + 16.1], new THREE.MeshBasicMaterial({ color: 0x080503 }), { cast: false });
+{
+  const lampMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffe0b0, emissiveIntensity: 2.4 });
+  for (const z of [2, 6, 10, 14]) mk(B(0.5, 0.02, 0.18), lampMat, 0, 2.34, LZ0 + z);
+  const l = new THREE.PointLight(0xffd8a8, 2.2, 7, 2); l.position.set(0, 2.1, LZ0 + 3); lobby.add(l);
+}
+for (const x of [-2.4, -1.2, 0, 1.2, 2.4]) box(lobby, [x - 0.42, x + 0.42], [1.92, 1.96], [LZ1, LZ1 + 0.04], trimL);
+
+// the reception counter: marble plinth, maroon face, marble bullnose rail and ledge
+box(lobby, [-3.2, 3.2], [0, 0.16], [CZ - 0.52, CZ + 0.03], counterMarble);
+box(lobby, [-3.2, 3.2], [0.16, 1.06], [CZ - 0.07, CZ], maroon);
+box(lobby, [-0.004, 0.004], [0.16, 1.06], [CZ, CZ + 0.003], blackPl, { cast: false });
+box(lobby, [-3.2, 3.2], [1.06, 1.14], [CZ - 0.52, CZ + 0.02], counterMarble);
+{
+  const rail = mk(new THREE.CylinderGeometry(0.07, 0.07, 6.4, 28), counterMarble, 0, 1.11, CZ + 0.03);
+  rail.rotation.z = Math.PI / 2;
+}
+box(lobby, [3.2, 3.34], [0, 1.18], [CZ - 0.56, CZ + 0.1], counterMarble);
+box(lobby, [-3.62, -3.2], [0, LH], [CZ - 0.6, CZ + 0.06], woodPanel);
+box(lobby, [-3.2, 3.2], [0.16, 1.06], [CZ - 0.52, CZ - 0.47], woodPanel);
+// the staff desk behind it
+box(lobby, [-3.2, 3.2], [DESK_Y - 0.04, DESK_Y], [-2.45, CZ - 0.52], deskTopMat);
+box(lobby, [-3.2, -2.3], [0, DESK_Y - 0.04], [-2.45, CZ - 0.52], woodPanel);
+box(lobby, [2.3, 3.2], [0, DESK_Y - 0.04], [-2.45, CZ - 0.52], woodPanel);
+
+// --- on the desk
+// computer
+const SCREEN_W = 0.46, SCREEN_H = 0.27;
+const [scrC, scrX] = makeCanvas(1024, 600);
+const screenTex = canvasTex(scrC);
+const monitor = new THREE.Group(); monitor.position.set(-0.55, DESK_Y, -1.78); lobby.add(monitor);
+mk(B(0.22, 0.015, 0.16), blackPl, 0, 0.008, 0, monitor);
+mk(B(0.04, 0.12, 0.03), blackPl, 0, 0.07, 0.02, monitor);
+mk(B(0.5, 0.31, 0.035), blackPl, 0, 0.255, 0, monitor);
+const screenMat = new THREE.MeshBasicMaterial({ map: screenTex });
+screenMat.color.setScalar(0.85);
+const screenMesh = mk(new THREE.PlaneGeometry(SCREEN_W, SCREEN_H), screenMat, 0, 0.26, -0.0185, monitor);
+screenMesh.rotation.y = Math.PI;
+const SCREEN_ROWS = [['101', 'Profile', 'Nov 22', 'In house'], ['102', 'Projects', 'Nov 22', 'In house'], ['103', 'Skills', 'Nov 22', 'In house'], ['104', 'Hobbies', 'Nov 22', 'In house'], ['105', 'Hackathons', 'Nov 22', 'In house'], ['106', 'N. Ibrahim', 'Nov 22', 'At the desk'], ['107', '—', '—', 'Do not disturb'], ['108', '—', '—', 'Do not disturb']];
+function drawScreen(t) {
+  const x = scrX, W = 1024, H = 600;
+  x.fillStyle = '#e4eaf1'; x.fillRect(0, 0, W, H);
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, 64);
+  x.fillStyle = '#2f6b4f'; x.beginPath(); x.moveTo(28, 48); x.lineTo(44, 14); x.lineTo(60, 48); x.closePath(); x.fill();
+  x.fillStyle = '#1d2733'; x.font = '600 28px Helvetica, Arial, sans-serif'; x.fillText('Liminal Hotel', 76, 42);
+  x.fillStyle = '#6b7684'; x.font = '18px Helvetica, Arial, sans-serif'; x.fillText('Front Desk 2.4', 268, 42);
+  x.fillStyle = '#2e3d50'; x.fillRect(0, 64, 220, H - 64);
+  ['Reservations', 'Check-ins', 'Check-outs', 'Guest records', 'Billing', 'Reports', 'Settings'].forEach((s, i) => {
+    if (i === 3) { x.fillStyle = '#4a6383'; x.fillRect(0, 84 + i * 46, 220, 42); }
+    x.fillStyle = '#e8eef6'; x.font = '19px Helvetica, Arial, sans-serif'; x.fillText(s, 24, 112 + i * 46);
+  });
+  x.fillStyle = '#1d2733'; x.font = '600 22px Helvetica, Arial, sans-serif'; x.fillText('Guest records', 250, 106);
+  x.strokeStyle = '#aab5c3'; x.lineWidth = 2; x.strokeRect(700, 82, 296, 34);
+  x.fillStyle = '#8a95a3'; x.font = '16px Helvetica, Arial, sans-serif'; x.fillText('Search guests', 714, 105);
+  if (Math.floor(t * 2) % 2) { x.fillStyle = '#1d2733'; x.fillRect(822, 90, 2, 18); }
+  x.fillStyle = '#cfd8e3'; x.fillRect(240, 130, 764, 34);
+  x.fillStyle = '#4b5666'; x.font = '600 16px Helvetica, Arial, sans-serif';
+  [['Room', 256], ['Guest', 340], ['Arrived', 640], ['Status', 820]].forEach(([s, cx]) => x.fillText(s, cx, 153));
+  SCREEN_ROWS.forEach((r, i) => {
+    const y = 164 + i * 44;
+    x.fillStyle = r[0] === '106' ? '#fff3c4' : i % 2 ? '#eef2f7' : '#f7f9fb'; x.fillRect(240, y, 764, 44);
+    x.fillStyle = '#1d2733'; x.font = (r[0] === '106' ? '600 ' : '') + '17px Helvetica, Arial, sans-serif';
+    [256, 340, 640, 820].forEach((cx, j) => x.fillText(r[j], cx, y + 28));
+  });
+  x.fillStyle = '#d3dbe5'; x.fillRect(220, H - 36, W - 220, 36);
+  x.fillStyle = '#4b5666'; x.font = '15px Helvetica, Arial, sans-serif'; x.fillText('Night shift · 3:12 AM · 1 guest at the desk', 240, H - 13);
+}
+drawScreen(0);
+const keyboard = (() => {
+  const [c, x] = makeCanvas(512, 176);
+  x.fillStyle = '#1b1d20'; x.fillRect(0, 0, 512, 176);
+  for (let r = 0; r < 5; r++) for (let k = 0; k < 15; k++) { x.fillStyle = '#30343a'; x.fillRect(10 + k * 33, 12 + r * 32, 28, 26); }
+  const top = new THREE.MeshStandardMaterial({ map: canvasTex(c), roughness: 0.5 });
+  return mk(B(0.44, 0.022, 0.15), [blackPl, blackPl, top, blackPl, blackPl, blackPl], -0.52, DESK_Y + 0.011, -2.08);
+})();
+mk(B(0.21, 0.004, 0.18), blackPl, -0.02, DESK_Y + 0.002, -2.1);
+const mouse = mk(new THREE.SphereGeometry(0.03, 16, 12), blackPl, -0.02, DESK_Y + 0.014, -2.12);
+mouse.scale.set(1, 0.5, 1.55);
+
+// desk phone with a coiled cord
+const phone = new THREE.Group(); phone.position.set(0.42, DESK_Y, -1.9); lobby.add(phone);
+{
+  const [c, x] = makeCanvas(256, 256);
+  x.fillStyle = '#1a1c1f'; x.fillRect(0, 0, 256, 256);
+  x.fillStyle = '#a9b39a'; x.fillRect(60, 18, 170, 52);
+  x.fillStyle = '#22281c'; x.font = '600 16px Menlo, monospace'; x.fillText('LINE 1', 72, 40); x.fillText('3:12 AM', 72, 60);
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
+  keys.forEach((k, i) => {
+    const kx = 92 + (i % 3) * 46, ky = 90 + Math.floor(i / 3) * 40;
+    x.fillStyle = '#c9cbcf'; x.fillRect(kx, ky, 38, 30);
+    x.fillStyle = '#1a1c1f'; x.font = '600 18px Helvetica, Arial'; x.fillText(k, kx + 14, ky + 21);
+  });
+  const top = new THREE.MeshStandardMaterial({ map: canvasTex(c), roughness: 0.4 });
+  const base = mk(B(0.2, 0.06, 0.21), [blackPl, blackPl, top, blackPl, blackPl, blackPl], 0.03, 0.035, 0, phone);
+  base.rotation.x = -0.2;
+}
+const handset = new THREE.Group(); handset.position.set(-0.085, 0.078, 0); phone.add(handset);
+mk(B(0.045, 0.035, 0.22), blackPl, 0, 0, 0, handset);
+mk(B(0.06, 0.05, 0.065), blackPl, 0, -0.012, 0.08, handset);
+mk(B(0.06, 0.05, 0.065), blackPl, 0, -0.012, -0.08, handset);
+const HANDSET_Y = handset.position.y, HANDSET_Z = handset.position.z;
+{
+  const guide = new THREE.CatmullRomCurve3([new V3(-0.085, 0.05, -0.11), new V3(-0.13, 0.012, -0.16), new V3(-0.06, 0.008, -0.2), new V3(0.03, 0.02, -0.1)]);
+  const pts = [];
+  for (let i = 0; i <= 400; i++) { const s = i / 400, p = guide.getPoint(s), a = s * Math.PI * 2 * 38; pts.push(p.add(new V3(Math.cos(a) * 0.008, Math.sin(a) * 0.008, Math.sin(a + 1.3) * 0.004))); }
+  mk(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 900, 0.0022, 6), blackPl, 0, 0, 0, phone);
+}
+
+// file sorter (one folder slides out when you open it)
+const files = new THREE.Group(); files.position.set(-1.62, DESK_Y, -1.78); lobby.add(files);
+mk(B(0.3, 0.015, 0.34), blackPl, 0, 0.008, 0, files);
+mk(B(0.01, 0.12, 0.34), blackPl, -0.15, 0.06, 0, files);
+mk(B(0.01, 0.12, 0.34), blackPl, 0.15, 0.06, 0, files);
+const folders = [];
+for (let i = 0; i < 7; i++) {
+  const f = mk(B(0.012, 0.27 + Math.random() * 0.03, 0.3), manilaMat, -0.12 + i * 0.04, 0.15, 0, files);
+  f.rotation.z = (Math.random() - 0.5) * 0.1 - 0.06;
+  folders.push(f);
+  if (i % 2) mk(B(0.004, 0.24, 0.27), paperL, -0.1 + i * 0.04, 0.16, 0.005, files);
+}
+const pulledFolder = folders[3];
+const FOLDER_Y = pulledFolder.position.y;
+
+// the rest of the desk: printer, pens, ledger, trays, clipboard, sticky notes, chair
+mk(B(0.5, 0.2, 0.4), beigePl, -2.55, DESK_Y + 0.1, -1.85);
+mk(B(0.36, 0.02, 0.02), blackPl, -2.55, DESK_Y + 0.12, -2.06);
+function penCup(px, pz) {
+  mk(new THREE.CylinderGeometry(0.035, 0.032, 0.1, 18), blackPl, px, DESK_Y + 0.05, pz);
+  [0x2350a8, 0xe0c23a, 0x111111].forEach((col, i) => {
+    const p = mk(new THREE.CylinderGeometry(0.004, 0.004, 0.15, 8), new THREE.MeshStandardMaterial({ color: col, roughness: 0.5 }), px + (i - 1) * 0.012, DESK_Y + 0.1, pz + (i % 2) * 0.01);
+    p.rotation.z = (i - 1) * 0.15;
+  });
+}
+penCup(-1.14, -1.62); penCup(1.06, -1.62);
+{
+  const [c, x] = makeCanvas(512, 340);
+  x.fillStyle = '#f3efe4'; x.fillRect(0, 0, 512, 340);
+  x.strokeStyle = 'rgba(70,110,160,0.45)'; x.lineWidth = 1;
+  for (let y = 30; y < 340; y += 16) { x.beginPath(); x.moveTo(0, y); x.lineTo(512, y); x.stroke(); }
+  x.strokeStyle = 'rgba(180,60,60,0.5)'; for (const cx of [60, 250, 380]) { x.beginPath(); x.moveTo(cx, 0); x.lineTo(cx, 340); x.stroke(); }
+  x.strokeStyle = 'rgba(30,30,50,0.6)'; x.lineWidth = 1.4;
+  for (let y = 44; y < 330; y += 16) if (Math.random() < 0.75) { x.beginPath(); x.moveTo(70, y); for (let k = 70; k < 70 + Math.random() * 160; k += 6) x.lineTo(k, y - 3 + Math.random() * 4); x.stroke(); }
+  const pageMat = new THREE.MeshStandardMaterial({ map: canvasTex(c), roughness: 0.9 });
+  const l = mk(B(0.24, 0.012, 0.33), [paperL, paperL, pageMat, paperL, paperL, paperL], -1.13, DESK_Y + 0.006, -2.2); l.rotation.y = 0.12;
+  const r = mk(B(0.24, 0.012, 0.33), [paperL, paperL, pageMat, paperL, paperL, paperL], -0.89, DESK_Y + 0.006, -2.17); r.rotation.y = 0.12;
+}
+for (let i = 0; i < 3; i++) {
+  mk(B(0.32, 0.008, 0.36), blackPl, 1.72, DESK_Y + 0.02 + i * 0.09, -1.78);
+  mk(B(0.28, 0.02 + Math.random() * 0.02, 0.3), paperL, 1.72, DESK_Y + 0.04 + i * 0.09, -1.78);
+}
+mk(B(0.012, 0.28, 0.36), blackPl, 1.88, DESK_Y + 0.14, -1.78);
+mk(B(0.23, 0.006, 0.32), new THREE.MeshStandardMaterial({ color: 0x6b4a2b, roughness: 0.6 }), 1.45, DESK_Y + 0.003, -2.22);
+mk(B(0.21, 0.002, 0.28), paperL, 1.45, DESK_Y + 0.007, -2.23);
+mk(B(0.08, 0.012, 0.03), brassL, 1.45, DESK_Y + 0.012, -2.08);
+mk(B(0.08, 0.02, 0.08), yellowNote, 0.86, DESK_Y + 0.01, -1.66);
+const note = (() => {
+  const [c, x] = makeCanvas(256, 256);
+  const draw = () => {
+    x.fillStyle = '#f2d24a'; x.fillRect(0, 0, 256, 256);
+    x.fillStyle = '#2a2a3a'; x.font = '500 48px Caveat, "Bradley Hand", cursive'; x.textAlign = 'center';
+    x.fillText('Check in', 128, 84); x.fillText('late guests', 128, 136); x.fillText(':)', 128, 196);
+  };
+  draw();
+  const t = canvasTex(c);
+  document.fonts?.load('500 48px Caveat').then(() => { draw(); t.needsUpdate = true; }).catch(() => {});
+  const m = mk(new THREE.PlaneGeometry(0.12, 0.12), new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }), 0.92, 0.93, CZ - 0.525);
+  m.rotation.set(0, Math.PI, 0.05);
+  return m;
+})();
+mk(B(0.5, 0.42, 0.07), new THREE.MeshStandardMaterial({ color: 0x1b1c1f, roughness: 0.6 }), 0.05, 0.78, -2.6);
+
+// service bell on the ledge
+const bell = new THREE.Group(); bell.position.set(-1.75, 1.14, CZ - 0.28); lobby.add(bell);
+mk(new THREE.CylinderGeometry(0.05, 0.055, 0.014, 28), blackPl, 0, 0.007, 0, bell);
+const dome = mk(new THREE.SphereGeometry(0.045, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), brassL, 0, 0.014, 0, bell);
+const plunger = mk(new THREE.CylinderGeometry(0.006, 0.006, 0.02, 12), brassL, 0, 0.066, 0, bell);
+mk(new THREE.SphereGeometry(0.009, 12, 8), brassL, 0, 0.012, 0, plunger);
+const PLUNGER_Y = plunger.position.y;
+
+// --- the lobby side: paintings, plants, glass doors, exit sign, extinguisher
+function painting(x0, seed) {
+  const w = 0.95, h = 0.71, z = LZ0 - 0.012;
+  const p = mk(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: paintingTexture(seed), roughness: 0.7 }), x0, 1.72, z);
+  p.rotation.y = Math.PI;
+  const fm = new THREE.MeshStandardMaterial({ color: 0xa98652, roughness: 0.4, metalness: 0.5 });
+  const t = 0.06;
+  boxAt(lobby, x0, 1.72 + h / 2 + t / 2, z - 0.01, w + t * 2, t, 0.03, fm);
+  boxAt(lobby, x0, 1.72 - h / 2 - t / 2, z - 0.01, w + t * 2, t, 0.03, fm);
+  boxAt(lobby, x0 - w / 2 - t / 2, 1.72, z - 0.01, t, h, 0.03, fm);
+  boxAt(lobby, x0 + w / 2 + t / 2, 1.72, z - 0.01, t, h, 0.03, fm);
+}
+painting(-3.3, 0.3); painting(3.4, 2.1);
+const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f5a2c, roughness: 0.7, side: THREE.DoubleSide });
+const leafGeo = new THREE.PlaneGeometry(0.11, 0.6); leafGeo.translate(0, 0.3, 0);
+function plant(px, pz) {
+  mk(new THREE.CylinderGeometry(0.2, 0.15, 0.36, 24), beigePl, px, 0.18, pz);
+  for (let i = 0; i < 14; i++) {
+    const l = mk(leafGeo, leafMat, px, 0.34, pz);
+    l.rotation.order = 'YXZ';
+    l.rotation.set(0.25 + Math.random() * 0.55, (i / 14) * Math.PI * 2 + Math.random() * 0.3, 0);
+    l.scale.setScalar(0.7 + Math.random() * 0.6);
+  }
+}
+plant(-5.4, 5.3); plant(5.4, 5.3);
+{
+  const glassDoor = new THREE.MeshStandardMaterial({ color: 0x0b0d10, roughness: 0.12, metalness: 0.4 });
+  mk(B(0.04, 2.2, 1.7), glassDoor, -LX + 0.03, 1.1, 3.9);
+  boxAt(lobby, -LX + 0.05, 2.25, 3.9, 0.06, 0.1, 1.8, trimL);
+  mk(B(0.05, 2.2, 0.04), trimL, -LX + 0.06, 1.1, 3.9);
+  const exit = mk(new THREE.PlaneGeometry(0.5, 0.19), new THREE.MeshBasicMaterial({ map: exitTexture() }), -LX + 0.02, 2.62, 3.9);
+  exit.material.color.setScalar(2.2); exit.rotation.y = Math.PI / 2;
+  mk(B(0.04, 2.15, 0.95), new THREE.MeshStandardMaterial({ color: 0x3a2416, roughness: 0.5 }), -LX + 0.03, 1.075, -3.2);
+  mk(new THREE.CylinderGeometry(0.075, 0.075, 0.45, 20), new THREE.MeshStandardMaterial({ color: 0xb3201b, roughness: 0.35 }), LX - 0.12, 0.62, -2.6);
+  mk(new THREE.CylinderGeometry(0.03, 0.05, 0.08, 16), blackPl, LX - 0.12, 0.88, -2.6);
+  const sign = mk(new THREE.PlaneGeometry(0.2, 0.265), new THREE.MeshStandardMaterial({ map: plaqueTexture(106, 'Front desk'), roughness: 0.35, metalness: 0.5 }), LX - 0.01, 1.6, -1.6);
+  sign.rotation.y = -Math.PI / 2;
+  mk(new THREE.CylinderGeometry(0.16, 0.14, 0.42, 20), new THREE.MeshStandardMaterial({ color: 0x6c6f73, roughness: 0.4, metalness: 0.6 }), 5.9, 0.21, 4.9);
+}
+
+// drop-ceiling fluorescents, one of them unsure of itself
+const fluoro = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xfff3dc, emissiveIntensity: 2.6 });
+const fluoroFlicker = fluoro.clone();
+for (const x of [-3.6, 0, 3.6]) for (const z of [-3, 0.8, 4.4]) mk(B(1.15, 0.03, 0.28), x === 3.6 && z === 0.8 ? fluoroFlicker : fluoro, x, LH - 0.012, z);
+for (const [x, z] of [[-3.6, 0.8], [3.6, 0.8], [0, -3], [0, 4.4], [0, 0.8]]) { const l = new THREE.PointLight(0xfff0d8, 3.2, 10, 2); l.position.set(x, LH - 0.2, z); lobby.add(l); }
+lobby.add(new THREE.HemisphereLight(0xfff0d8, 0x2a1d12, 0.3));
+
+// polished floor: a faint planar reflection over the marble
+const flatHeight = { value: new THREE.DataTexture(new Float32Array([0, 0, 0, 1]), 1, 1, THREE.RGBAFormat, THREE.FloatType) };
+flatHeight.value.needsUpdate = true;
+const lobbyGloss = makeWater(lobby, { min: new THREE.Vector2(-LX, LZ1), size: new THREE.Vector2(LX * 2, LZ0 - LZ1), texel: new THREE.Vector2(1, 1), height: flatHeight }, 0.002, {
+  fogColor: LFOG, fogDensity: 0.03, glowDir: new V3(0, 0, 1), glowColor: LFOG,
+  tint: new V3(0.85, 0.82, 0.76), deep: new V3(0, 0, 0), reflMix: 1, alpha: new THREE.Vector2(0.1, 0.55),
+  shimmer: 0, normal: 0, lightDir: new V3(0, -1, 0),
+});
+
+// what you can touch
+const lobbyPick = [];
+const PROPS = {
+  computer: { label: 'Computer', meta: 'Open the guest records', objs: [monitor, keyboard, mouse] },
+  phone: { label: 'Phone', meta: 'Leave a message', objs: [phone] },
+  files: { label: 'Files', meta: 'Read the guest file', objs: [files] },
+  bell: { label: 'Service bell', meta: 'Ring for service', objs: [bell] },
+  note: { label: 'Sticky note', meta: 'Check in late guests :)', objs: [note] },
+};
+for (const [key, p] of Object.entries(PROPS)) {
+  p.mats = []; p.hover = 0;
+  for (const o of p.objs) o.traverse((m) => {
+    if (!m.isMesh) return;
+    m.material = Array.isArray(m.material) ? m.material.map((mm) => mm.clone()) : m.material.clone();
+    for (const mm of [].concat(m.material)) if (mm.emissive) p.mats.push(mm);
+    m.userData.prop = key;
+    lobbyPick.push(m);
+  });
+}
+const LOBBY_ENTRY = new V3(0, 1.62, LZ0 + 0.7);
+const LOBBY_VIEW = new V3(0, 1.62, 3.4);
+const STAFF_POS = new V3(0.05, 1.27, -3.0);
+const STAFF_YAW = Math.PI, STAFF_PITCH = -0.16;
+function dirFrom(yaw, pitch, out = new V3()) { return out.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch)); }
+
+// =====================================================================================
+// Post: bloom, then a lens that draws the waterline, the underwater look and door flashes
 // =====================================================================================
 const composer = new EffectComposer(renderer);
 composer.setPixelRatio(renderer.getPixelRatio());
@@ -1173,37 +1883,24 @@ const fx = { dive: 0, flash: 0, wet: 0 };
 const lens = new ShaderPass({
   uniforms: {
     tDiffuse: { value: null }, uTime: U.uTime, uRes: { value: new THREE.Vector2(innerWidth, innerHeight) },
-    uDive: { value: 0 }, uFlash: { value: 0 }, uWet: { value: 0 },
+    uDive: { value: 0 }, uFlash: { value: 0 }, uWet: { value: 0 }, uLine: { value: -0.3 }, uUnder: { value: 0.6 },
     uFlashColor: { value: new V3(1.6, 1.4, 1.1) }, uGrade: { value: new V3(0.86, 1.0, 1.08) },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: /* glsl */`
-    uniform sampler2D tDiffuse; uniform float uTime, uDive, uFlash, uWet; uniform vec2 uRes; uniform vec3 uFlashColor, uGrade;
+    uniform sampler2D tDiffuse; uniform float uTime, uDive, uFlash, uWet, uLine, uUnder; uniform vec2 uRes; uniform vec3 uFlashColor, uGrade;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-    float bubbles(vec2 uv, float t){
-      float b = 0.0; float asp = uRes.x / uRes.y;
-      for (int i = 0; i < 3; i++) {
-        float fi = float(i);
-        float s = 5.0 + fi * 4.0;
-        vec2 g = vec2(uv.x * asp * s, uv.y * s - t * (1.4 + fi * 0.8));
-        vec2 id = floor(g); vec2 f = fract(g) - 0.5;
-        float h = hash(id + fi * 17.0);
-        if (h < 0.66) continue;
-        f.x += sin(t * 3.0 + h * 20.0) * 0.1;
-        vec2 o = vec2(hash(id + 3.1) - 0.5, hash(id + 7.7) - 0.5) * 0.4;
-        float r = 0.06 + 0.12 * hash(id + 1.3);
-        float d = length(f - o);
-        float ring = smoothstep(r, r - 0.025, d) * (0.2 + 0.8 * smoothstep(r * 0.4, r, d));
-        float hi = smoothstep(r * 0.35, 0.0, length(f - o - vec2(-r * 0.35, r * 0.35)));
-        b += ring + hi * 0.8;
-      }
-      return b;
-    }
     void main(){
-      vec2 uv = vUv;
-      float wob = 0.0009 + uDive * 0.007;
-      uv += vec2(sin(uv.y * 14.0 + uTime * (0.9 + uDive * 3.0)), cos(uv.x * 11.0 + uTime * (0.7 + uDive * 2.5))) * wob;
+      vec2 uv0 = vUv;
+      // the waterline: a wavy edge that sweeps across the lens as the camera crosses the surface
+      float wl = uLine + sin(uv0.x * 9.0 + uTime * 5.0) * 0.018 + sin(uv0.x * 23.0 - uTime * 7.0) * 0.007;
+      float under = max(uDive, smoothstep(wl + 0.006, wl - 0.006, uv0.y));
+      float band = exp(-abs(uv0.y - wl) * 80.0) * step(-0.2, uLine) * step(uLine, 1.2);
+      vec2 uv = uv0;
+      float wob = 0.0009 + under * 0.006;
+      uv += vec2(sin(uv.y * 14.0 + uTime * (0.9 + under * 3.0)), cos(uv.x * 11.0 + uTime * (0.7 + under * 2.5))) * wob;
+      uv.y += band * 0.035 * sin(uv0.x * 40.0 + uTime * 8.0);
       if (uWet > 0.001) {
         vec2 g = vec2(uv.x * uRes.x / uRes.y * 8.0, uv.y * 4.5 + uTime * 0.5);
         vec2 id = floor(g); vec2 f = fract(g) - 0.5;
@@ -1213,17 +1910,19 @@ const lens = new ShaderPass({
         uv += (f - o) * drop * 0.035 * uWet;
       }
       vec2 c = uv - 0.5;
-      float ca = 0.006 * dot(c, c) + uDive * 0.004;
+      float ca = 0.006 * dot(c, c) + under * 0.003;
       vec3 col = vec3(texture2D(tDiffuse, uv + c * ca * 2.0).r, texture2D(tDiffuse, uv).g, texture2D(tDiffuse, uv - c * ca * 2.0).b);
-      if (uDive > 0.001) {
-        vec2 px = 4.0 / uRes * uDive;
+      if (under > 0.001) {
+        float amt = under * uUnder;
+        vec2 px = 4.0 / uRes * amt;
         vec3 bl = (texture2D(tDiffuse, uv + vec2(px.x, 0.0)).rgb + texture2D(tDiffuse, uv - vec2(px.x, 0.0)).rgb +
                    texture2D(tDiffuse, uv + vec2(0.0, px.y)).rgb + texture2D(tDiffuse, uv - vec2(0.0, px.y)).rgb) * 0.25;
-        col = mix(col, bl, uDive);
-        vec3 deep = vec3(0.01, 0.08, 0.13) * (0.5 + 1.1 * smoothstep(0.0, 1.0, uv.y));
-        col = mix(col, deep + col * vec3(0.1, 0.35, 0.5), uDive * 0.85);
-        col += vec3(0.55, 0.85, 1.0) * bubbles(uv, uTime) * uDive * 0.55;
+        col = mix(col, bl, amt);
+        vec3 deepC = vec3(0.01, 0.08, 0.13) * (0.5 + 1.1 * smoothstep(0.0, 1.0, uv.y));
+        col = mix(col, deepC + col * vec3(0.25, 0.55, 0.7), amt * 0.85);
       }
+      col *= 1.0 - exp(-abs(uv0.y - (wl - 0.014)) * 150.0) * 0.55 * step(-0.2, uLine) * step(uLine, 1.2);
+      col += vec3(0.6, 0.9, 1.0) * band * 0.9;
       float vig = smoothstep(1.05, 0.2, length(c * vec2(1.0, 1.25)));
       col *= mix(0.28, 1.0, vig);
       col = mix(col, col * uGrade, 0.6);
@@ -1239,7 +1938,8 @@ composer.addPass(new OutputPass());
 // =====================================================================================
 // State, camera rig, tweens
 // =====================================================================================
-let state = 'pool';           // pool | diving | hall | entering | room | leaving | surfacing
+// pool | diving | hall | entering | room | leaving | surfacing | lobby-intro | lobby | lobby-focus | lobby-exit
+let state = 'pool';
 let active = pool;
 const rig = { pos: new V3(0.55, 1.55, 7.2), look: new V3(0.4, 2.7, -14), parallax: 1 };
 const POOL_POS = new V3(0.55, 1.55, 7.2), POOL_LOOK = new V3(0.4, 2.7, -14);
@@ -1248,10 +1948,11 @@ let hallZ = HALL_Z0, hallZT = HALL_Z0;
 const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
 
 function setState(s) { state = s; document.body.dataset.state = s; }
+const GRADES = new Map([[pool, [0.86, 1.0, 1.08]], [hall, [1.05, 1.0, 0.9]], [deep, [0.82, 1.0, 1.12]], [lobby, [1.06, 1.0, 0.92]]]);
 function setScene(s) {
   active = s; renderPass.scene = s;
-  lens.uniforms.uGrade.value.set(...(s === pool ? [0.86, 1.0, 1.08] : [1.05, 1.0, 0.9]));
-  bloom.threshold = s === pool ? 0.62 : 0.7;
+  lens.uniforms.uGrade.value.set(...GRADES.get(s));
+  bloom.threshold = s === pool || s === deep ? 0.62 : 0.72;
 }
 
 const tweens = [];
@@ -1275,8 +1976,30 @@ function runTweens(dt) {
   }
 }
 const lerpRig = (p0, p1, l0, l1) => (k) => { rig.pos.lerpVectors(p0, p1, k); rig.look.lerpVectors(l0, l1, k); };
+const wait = (s) => tween(s, () => {}, ease.lin);
 
-// ---------------------------------------------------------------- the dive: pool floor → under → up into the hallway
+// ---------------------------------------------------------------- the swim between the pool and the hotel
+async function swim(toHotel) {
+  setScene(deep);
+  bubbles.attach(deep, -0.02); bubbles.clear();
+  deepSurfMat.uniforms.uWarm.value = toHotel ? 0 : 1;
+  const dir = toHotel ? -1 : 1;                 // the hotel lies down the -z axis
+  const z0 = toHotel ? 2 : -20.5;
+  rig.parallax = 0.15;
+  rig.pos.set(0, -0.35, z0); rig.look.set(0, -3.5, z0 + dir * 3.5);
+  bubbles.burst(new V3(0, -0.9, z0 + dir * 0.8), 150, 1.5, 1.2);   // the air you brought down with you
+  const a0 = rig.pos.clone(), l0 = rig.look.clone();
+  const a1 = new V3(0.2, -3.2, z0 + dir * 4.5), l1 = new V3(0.3, -3.6, z0 + dir * 14);
+  await tween(1.3, lerpRig(a0, a1, l0, l1), ease.out);
+  bubbleRate = 26;
+  const a2 = new V3(-0.2, -2.6, z0 + dir * 17), l2 = new V3(0, 0.5, z0 + dir * 28);
+  await tween(1.7, (k) => { lerpRig(a1, a2, l1, l2)(k); deepSurfMat.uniforms.uWarm.value = toHotel ? k : 1 - k; }, ease.io);
+  const a3 = new V3(0, -0.5, z0 + dir * 22.5), l3 = new V3(0, 0.6, z0 + dir * 30);
+  await tween(1.0, lerpRig(a2, a3, l2, l3), ease.in);
+  bubbleRate = 0;
+}
+
+// ---------------------------------------------------------------- the dive: pool → deep water → up into the hallway
 async function dive() {
   if (state !== 'pool') return;
   setState('diving');
@@ -1284,44 +2007,82 @@ async function dive() {
   const p0 = rig.pos.clone(), l0 = rig.look.clone();
   const p1 = new V3(0.35, 0.95, 1.4), l1 = new V3(0.2, 0.1, -6);
   poolSim.addDrop(0.3, -1.0, 0.9, 0.05);
-  tween(1.2, (k) => { rig.parallax = 1 - k * 0.8; });
-  await tween(1.5, lerpRig(p0, p1, l0, l1));
-  poolSim.addDrop(0.35, 0.2, 0.7, 0.06);
-  const p2 = new V3(0.35, 0.07, -0.3), l2 = new V3(0.25, -0.6, -4.5);
-  await tween(0.75, (k) => { lerpRig(p1, p2, l1, l2)(k); fx.dive = k; }, ease.in);
-  plop(1.0);
+  tween(1.2, (k) => { rig.parallax = 1 - k * 0.85; });
+  await tween(1.4, lerpRig(p0, p1, l0, l1));
+  // the plunge: the surface parts around you
+  const entry = new V3(0.35, P_WATER_Y, 0.15);
+  const p2 = new V3(0.35, 0.05, -0.2), l2 = new V3(0.3, -0.9, -3.5);
+  let parted = false;
+  bubbles.attach(pool, 0.32); bubbles.clear();
+  await tween(0.85, (k) => {
+    lerpRig(p1, p2, l1, l2)(k);
+    if (!parted && rig.pos.y < 0.6) {
+      parted = true;
+      splashFx.start(pool, entry, 1);
+      poolSim.addDrop(entry.x, entry.z, 0.9, 0.09);
+      setTimeout(() => poolSim.addDrop(entry.x, entry.z, 0.5, -0.04), 120);
+      splash();
+    }
+  }, ease.in);
+  await swim(true);
+  // up through the hallway's water
   setScene(hall);
-  rig.pos.set(0, -0.4, HALL_Z0 + 0.6); rig.look.set(0, 0.4, -6);
+  bubbles.attach(hall, H_WATER); bubbles.clear();
+  rig.pos.set(0, -0.5, HALL_Z0 + 0.6); rig.look.set(0, 0.4, HALL_Z0 - 7);
   hallZ = hallZT = HALL_Z0;
-  await tween(0.55, () => { fx.dive = 1; }, ease.lin);
+  bubbles.burst(new V3(0, -0.45, HALL_Z0 - 0.6), 70, 1.3, 1);
   const pa = rig.pos.clone(), la = rig.look.clone();
   const pb = new V3(0, 1.55, HALL_Z0), lb = new V3(0, 1.45, HALL_Z0 - 12);
   let surfaced = false;
-  await tween(1.9, (k) => {
+  await tween(1.7, (k) => {
     lerpRig(pa, pb, la, lb)(k);
-    fx.dive = THREE.MathUtils.clamp((H_WATER + 0.12 - rig.pos.y) / 0.32, 0, 1);
-    if (!surfaced && rig.pos.y > H_WATER) { surfaced = true; fx.wet = 1; hallSim.addDrop(0, HALL_Z0 + 0.4, 0.7, 0.06); splash(); }
+    if (!surfaced && rig.pos.y > H_WATER - 0.05) {
+      surfaced = true; fx.wet = 1;
+      splashFx.start(hall, new V3(0, H_WATER, HALL_Z0 + 0.35), 0.75);
+      hallSim.addDrop(0, HALL_Z0 + 0.35, 0.7, 0.06);
+      splash();
+    }
   }, ease.out);
   tween(0.8, (k) => { rig.parallax = 0.2 + k * 0.8; });
   setState('hall');
 }
-// ---------------------------------------------------------------- back up: hallway water → pool
+
+// ---------------------------------------------------------------- back up: hallway water → deep water → pool
 async function surface() {
   if (state !== 'hall') return;
   setState('surfacing');
   whoosh(1.0);
+  const z = rig.pos.z;
   const p0 = rig.pos.clone(), l0 = rig.look.clone();
-  const p1 = new V3(0, -0.3, rig.pos.z - 1.2), l1 = new V3(0, -0.8, rig.pos.z - 6);
-  hallSim.addDrop(0, rig.pos.z - 1.6, 0.7, 0.06);
-  await tween(1.2, (k) => { lerpRig(p0, p1, l0, l1)(k); fx.dive = THREE.MathUtils.clamp((H_WATER + 0.12 - rig.pos.y) / 0.32, 0, 1); }, ease.in);
-  fx.dive = 1;
+  const p1 = new V3(0, -0.4, z - 1.0), l1 = new V3(0, -1.4, z - 5);
+  bubbles.attach(hall, H_WATER); bubbles.clear();
+  let parted = false;
+  tween(0.6, (k) => { rig.parallax = 1 - k * 0.85; });
+  await tween(1.2, (k) => {
+    lerpRig(p0, p1, l0, l1)(k);
+    if (!parted && rig.pos.y < H_WATER + 0.5) {
+      parted = true;
+      splashFx.start(hall, new V3(0, H_WATER, z - 0.85), 0.8);
+      hallSim.addDrop(0, z - 0.85, 0.8, 0.07);
+      splash();
+    }
+  }, ease.in);
+  await swim(false);
   setScene(pool);
-  rig.pos.set(0.35, 0.06, 1.2); rig.look.set(0.3, 0.9, -8);
-  await tween(0.5, () => { fx.dive = 1; }, ease.lin);
+  bubbles.attach(pool, 0.32); bubbles.clear();
+  rig.pos.set(0.35, 0.05, 1.2); rig.look.set(0.3, 0.9, -8);
+  bubbles.burst(new V3(0.35, 0.05, 0.4), 40, 0.8, 0.6);
   const pa = rig.pos.clone(), la = rig.look.clone();
-  poolSim.addDrop(0.35, 0.2, 0.8, 0.05);
-  await tween(1.8, (k) => { lerpRig(pa, POOL_POS, la, POOL_LOOK)(k); fx.dive = 1 - ease.out(Math.min(1, k * 2.2)); }, ease.out);
-  fx.wet = 0.8;
+  let surfaced = false;
+  await tween(2.0, (k) => {
+    lerpRig(pa, POOL_POS, la, POOL_LOOK)(k);
+    if (!surfaced && rig.pos.y > 0.22) {
+      surfaced = true; fx.wet = 0.9;
+      splashFx.start(pool, new V3(0.35, P_WATER_Y, 0.7), 0.7);
+      poolSim.addDrop(0.35, 0.7, 0.8, 0.05);
+      splash();
+    }
+  }, ease.out);
   rig.parallax = 1;
   setState('pool');
 }
@@ -1351,32 +2112,41 @@ async function enterDoor(door) {
   });
   const p2 = new V3(s * (HW + 1.2), 1.5, door.z), l2 = new V3(s * (HW + 4), 1.4, door.z);
   await tween(1.0, (k) => { lerpRig(p1, p2, l1, l2)(k); fx.flash = ease.in(k); }, ease.in);
-  openRoom(room);
+  if (room.scene3d) enterLobby();
+  else openRoom(room);
 }
-async function leaveRoom() {
-  if (state !== 'room' || !currentDoor) return;
-  const door = currentDoor, s = door.side;
-  closeRoom();
-  setState('leaving');
-  paused = false;
-  const p2 = rig.pos.clone(), l2 = rig.look.clone();
-  const p1 = new V3(-s * 0.4, 1.55, door.z + 0.05), l1 = new V3(s * HW, 1.35, door.z);
-  await tween(1.1, (k) => { lerpRig(p2, p1, l2, l1)(k); fx.flash = 1 - ease.out(k); }, ease.out);
-  const pz = new V3(0, 1.55, door.z + 0.05), lz = new V3(0, 1.45, door.z - 12);
-  tween(0.9, (k) => {
+// step back out of a room into the hallway (the screen starts flashed white)
+async function returnToHall(door) {
+  const s = door.side;
+  setScene(hall);
+  door.open = 1; door.glowMat.emissiveIntensity = 3.8; doorLight.intensity = 8;
+  doorLight.position.set(s * (HW + 0.6), 1.3, door.z);
+  rig.parallax = 0.15;
+  rig.pos.set(s * (HW + 0.95), 1.55, door.z); rig.look.set(-s * 3, 1.45, door.z - 0.4);
+  const p0 = rig.pos.clone(), l0 = rig.look.clone();
+  const p1 = new V3(0, 1.55, door.z + 0.1), l1 = new V3(0, 1.45, door.z - 11.9);
+  await tween(1.5, (k) => { lerpRig(p0, p1, l0, l1)(k); fx.flash = 1 - ease.out(Math.min(1, k * 1.4)); });
+  fx.flash = 0;
+  await tween(0.8, (k) => {
     door.open = 1 - k;
     door.glowMat.emissiveIntensity = 0.05 + (1 - k) * 3.7;
     doorLight.intensity = (1 - k) * 8;
   });
-  await tween(1.1, lerpRig(p1, pz, l1, lz));
-  hallZ = hallZT = door.z + 0.05;
+  hallZ = hallZT = door.z + 0.1;
   tween(0.6, (k) => { rig.parallax = 0.15 + k * 0.85; });
   currentDoor = null;
   setState('hall');
   document.querySelector(`.door-btn[data-room="${door.room.key}"]`)?.focus({ preventScroll: true });
 }
+async function leaveRoom() {
+  if (state !== 'room' || !currentDoor) return;
+  closeRoom();
+  paused = false;
+  setState('leaving');
+  await returnToHall(currentDoor);
+}
 
-// ---------------------------------------------------------------- room overlay
+// ---------------------------------------------------------------- room overlay (rooms without a 3D space yet)
 const roomEl = document.getElementById('room');
 let paused = false, pauseTimer = 0;
 function openRoom(room) {
@@ -1392,14 +2162,6 @@ function openRoom(room) {
   clearTimeout(pauseTimer);
   pauseTimer = setTimeout(() => { if (state === 'room') paused = true; }, 800);
   document.getElementById('room-back').focus({ preventScroll: true });
-  const copy = document.getElementById('copy-email');
-  if (copy) copy.addEventListener('click', () => {
-    const done = () => { copy.textContent = 'Copied'; setTimeout(() => (copy.textContent = 'Copy email'), 1600); };
-    navigator.clipboard?.writeText(PROFILE.email).then(done).catch(() => {
-      const r = document.createRange(); r.selectNodeContents(document.getElementById('email'));
-      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
-    });
-  });
 }
 function closeRoom() {
   clearTimeout(pauseTimer);
@@ -1407,8 +2169,179 @@ function closeRoom() {
   setTimeout(() => { if (!roomEl.classList.contains('open')) roomEl.hidden = true; }, 700);
 }
 document.getElementById('room-back').addEventListener('click', leaveRoom);
+
+// ---------------------------------------------------------------- Room 106: the front desk
+const deskName = document.getElementById('desk-name'), deskMeta = document.getElementById('desk-meta');
+const DESK_HINT = 'Use the computer, the phone or the files';
+let hotProp = null, focusKey = null;
+const _d = new V3();
+function setHotProp(key, force) {
+  if (hotProp === key && !force) return;
+  hotProp = key;
+  document.body.classList.toggle('door-hover', !!key);
+  if (key) { deskName.textContent = PROPS[key].label; deskMeta.textContent = PROPS[key].meta; }
+  else { deskName.textContent = ''; deskMeta.textContent = DESK_HINT; }
+}
+const staffLook = () => STAFF_POS.clone().add(dirFrom(STAFF_YAW, STAFF_PITCH, _d).multiplyScalar(3));
+// the camera rises over the counter, glances down at the desk and turns to face the lobby (or the reverse)
+function overCounter(forward) {
+  const pts = [LOBBY_VIEW.clone(), new V3(0.08, 1.85, 0.9), new V3(0.1, 2.05, CZ - 0.25), new V3(0.06, 1.55, -2.45), STAFF_POS.clone()];
+  if (!forward) pts.reverse();
+  const curve = new THREE.CatmullRomCurve3(pts);
+  whoosh(0.7);
+  return tween(2.8, (k) => {
+    rig.pos.copy(curve.getPoint(k));
+    let yaw, pitch;
+    if (forward) {
+      yaw = THREE.MathUtils.smoothstep(k, 0.45, 0.95) * Math.PI;
+      pitch = -0.09 - Math.sin(Math.min(1, k / 0.75) * Math.PI) * 0.6;
+      pitch = THREE.MathUtils.lerp(pitch, STAFF_PITCH, THREE.MathUtils.smoothstep(k, 0.7, 1));
+    } else {
+      yaw = Math.PI;
+      pitch = THREE.MathUtils.lerp(STAFF_PITCH, -0.05, k) - Math.sin(k * Math.PI) * 0.35;
+    }
+    rig.look.copy(rig.pos).add(dirFrom(yaw, pitch, _d).multiplyScalar(3));
+  }, ease.io);
+}
+async function enterLobby() {
+  setScene(lobby);
+  setState('lobby-intro');
+  setHotProp(null, true);
+  rig.parallax = 0.15;
+  const l0 = new V3(0, 1.15, -3), l1 = new V3(0, 1.05, -3);
+  rig.pos.copy(LOBBY_ENTRY); rig.look.copy(l0);
+  await tween(1.7, (k) => { rig.pos.lerpVectors(LOBBY_ENTRY, LOBBY_VIEW, k); rig.look.lerpVectors(l0, l1, k); fx.flash = 1 - ease.out(Math.min(1, k * 1.5)); }, ease.out);
+  fx.flash = 0;
+  await wait(0.7);
+  await overCounter(true);
+  setState('lobby');
+  tween(0.6, (k) => { rig.parallax = 0.15 + k * 0.25; });
+}
+async function exitLobby() {
+  if (state === 'lobby-focus') await unfocus();
+  if (state !== 'lobby') return;
+  setState('lobby-exit');
+  setHotProp(null);
+  tween(0.4, (k) => { rig.parallax = 0.4 * (1 - k); });
+  await overCounter(false);
+  const p0 = rig.pos.clone(), l0 = rig.look.clone();
+  const p1 = new V3(0, 1.62, LZ0 + 1.6), l1 = new V3(0, 1.5, LZ0 + 8);
+  await tween(1.1, (k) => { lerpRig(p0, p1, l0, l1)(k); fx.flash = ease.in(Math.max(0, (k - 0.35) / 0.65)); }, ease.in);
+  fx.flash = 1;
+  await returnToHall(currentDoor);
+}
+function focusPose(key) {
+  if (key === 'computer') {
+    const c = screenMesh.getWorldPosition(new V3());
+    const vf = THREE.MathUtils.degToRad(camera.fov);
+    const hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+    const fracW = innerWidth < 700 ? 0.96 : 0.74;
+    const d = Math.max(SCREEN_W / (fracW * 2 * Math.tan(hf / 2)), SCREEN_H / (0.84 * 2 * Math.tan(vf / 2)));
+    return { pos: c.clone().add(new V3(0, 0, -d)), look: c };
+  }
+  if (key === 'phone') return { pos: new V3(0.42, 1.06, -2.3), look: new V3(0.4, 0.78, -1.9) };
+  return { pos: new V3(-1.5, 1.12, -2.42), look: new V3(-1.6, 0.9, -1.72) };
+}
+async function focusProp(key) {
+  if (state !== 'lobby') return;
+  setState('lobby-focus');
+  focusKey = key;
+  setHotProp(null);
+  const f = focusPose(key);
+  const p0 = rig.pos.clone(), l0 = rig.look.clone();
+  tween(0.5, (k) => { rig.parallax = 0.4 * (1 - k); });
+  if (key === 'phone') {
+    pickup();
+    tween(0.7, (k) => { handset.position.y = HANDSET_Y + k * 0.16; handset.position.z = HANDSET_Z - k * 0.08; handset.rotation.z = k * 0.5; });
+  }
+  if (key === 'files') tween(0.8, (k) => { pulledFolder.position.y = FOLDER_Y + k * 0.2; });
+  await tween(1.1, lerpRig(p0, f.pos, l0, f.look));
+  showPanel(key);
+}
+async function unfocus() {
+  if (state !== 'lobby-focus') return;
+  const key = focusKey;
+  hidePanels();
+  const p0 = rig.pos.clone(), l0 = rig.look.clone();
+  if (key === 'phone') tween(0.7, (k) => { handset.position.y = HANDSET_Y + (1 - k) * 0.16; handset.position.z = HANDSET_Z - (1 - k) * 0.08; handset.rotation.z = (1 - k) * 0.5; });
+  if (key === 'files') tween(0.8, (k) => { pulledFolder.position.y = FOLDER_Y + (1 - k) * 0.2; });
+  await tween(0.9, lerpRig(p0, STAFF_POS, l0, staffLook()));
+  focusKey = null;
+  tween(0.5, (k) => { rig.parallax = 0.4 * k; });
+  setState('lobby');
+}
+let bellCool = 0, bellTimer = 0;
+function ringBell() {
+  if (performance.now() < bellCool) return;
+  bellCool = performance.now() + 450;
+  ding();
+  tween(0.4, (k, raw) => {
+    plunger.position.y = PLUNGER_Y - Math.sin(Math.min(1, raw * 2) * Math.PI) * 0.008;
+    dome.scale.setScalar(1 + Math.sin(raw * Math.PI * 8) * 0.035 * (1 - raw));
+  }, ease.lin);
+  deskName.textContent = 'Ding.';
+  deskMeta.textContent = 'Someone will be with you shortly.';
+  clearTimeout(bellTimer);
+  bellTimer = setTimeout(() => { if (!hotProp && state === 'lobby') setHotProp(null, true); }, 2400);
+}
+function activateProp(key) {
+  if (key === 'bell') ringBell();
+  else if (key === 'note') { deskName.textContent = 'Sticky note'; deskMeta.textContent = 'Check in late guests :)'; }
+  else focusProp(key);
+}
+
+// desk panels: the computer is drawn exactly over the monitor's screen
+const panels = { computer: document.getElementById('pc-panel'), phone: document.getElementById('phone-panel'), files: document.getElementById('file-panel') };
+function placePc() {
+  const el = panels.computer;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    const p = screenMesh.localToWorld(new V3(sx * SCREEN_W / 2, sy * SCREEN_H / 2, 0)).project(camera);
+    const px = (p.x + 1) / 2 * innerWidth, py = (1 - p.y) / 2 * innerHeight;
+    x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
+  }
+  const w = x1 - x0, h = y1 - y0;
+  if (w < 560) { el.classList.add('fit'); el.removeAttribute('style'); return; }
+  el.classList.remove('fit');
+  Object.assign(el.style, { left: `${x0}px`, top: `${y0}px`, width: `${w}px`, height: `${h}px`, fontSize: `${w / 62}px` });
+}
+function showPanel(key) {
+  const el = panels[key];
+  el.hidden = false;
+  if (key === 'computer') placePc();
+  requestAnimationFrame(() => el.classList.add('open'));
+  el.querySelector('[data-close]')?.focus({ preventScroll: true });
+}
+function hidePanels() {
+  for (const el of Object.values(panels)) {
+    el.classList.remove('open');
+    setTimeout(() => { if (!el.classList.contains('open')) el.hidden = true; }, 400);
+  }
+}
+for (const el of Object.values(panels)) el.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', unfocus));
+document.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', () => {
+  const label = b.textContent;
+  const done = () => { b.textContent = 'Copied'; setTimeout(() => (b.textContent = label), 1500); };
+  try {
+    navigator.clipboard.writeText(PROFILE.email).then(done).catch(() => { b.textContent = PROFILE.email; });
+  } catch (_) { b.textContent = PROFILE.email; }
+}));
+document.getElementById('msg-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = document.getElementById('msg-name').value.trim();
+  const body = document.getElementById('msg-body').value.trim();
+  const subject = `Message from the front desk${name ? ` (${name})` : ''}`;
+  document.getElementById('msg-status').innerHTML = `Your email app should open with the message. If nothing happens, write to <code>${PROFILE.email}</code>.`;
+  location.href = `mailto:${PROFILE.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+});
+document.getElementById('desk-back').addEventListener('click', exitLobby);
+
 addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && state === 'room') leaveRoom();
+  if (e.key === 'Escape') {
+    if (state === 'room') leaveRoom();
+    else if (state === 'lobby-focus') unfocus();
+    else if (state === 'lobby') exitLobby();
+  }
   if (state === 'hall') {
     if (e.key === 'ArrowUp' || e.key === 'w') hallZT -= 1.5;
     if (e.key === 'ArrowDown' || e.key === 's') hallZT += 1.5;
@@ -1430,7 +2363,7 @@ for (const door of doors.filter((d) => d.room)) {
   directory.appendChild(b);
 }
 const capName = document.getElementById('cap-name'), capMeta = document.getElementById('cap-meta');
-const WALK_HINT = isMobile ? 'Swipe to walk · Choose a door' : 'Scroll to walk · Choose a door';
+const WALK_HINT = isMobile ? 'Swipe to walk' : 'Scroll to walk';
 capMeta.textContent = WALK_HINT;
 function setHot(door) {
   if (hotDoor === door) return;
@@ -1467,6 +2400,13 @@ function onMove(e) {
     if (Math.abs(dy) > 6) down.moved = true;
     if (down.moved) { hallZT = THREE.MathUtils.clamp(down.z + dy * 0.02, HALL_Z1, HALL_Z0); return; }
   }
+  if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) down.moved = true;
+  if (state === 'lobby') {
+    setRay(e.clientX, e.clientY);
+    const h = ray.intersectObjects(lobbyPick, false)[0];
+    setHotProp(h ? h.object.userData.prop : null);
+    return;
+  }
   if (state === 'hall') {
     setRay(e.clientX, e.clientY);
     const h = ray.intersectObjects(pickables, false)[0];
@@ -1484,12 +2424,19 @@ function onMove(e) {
   }
 }
 function onDown(e) {
-  down = { y: e.clientY, z: hallZT, moved: false };
+  down = { x: e.clientX, y: e.clientY, z: hallZT, moved: false };
   if (state === 'pool') splashAt(e);
 }
 function onUp(e) {
   const d = down; down = null;
-  if (!d || d.moved || state !== 'hall') return;
+  if (!d || d.moved) return;
+  if (state === 'lobby') {
+    setRay(e.clientX, e.clientY);
+    const h = ray.intersectObjects(lobbyPick, false)[0];
+    if (h) activateProp(h.object.userData.prop);
+    return;
+  }
+  if (state !== 'hall') return;
   setRay(e.clientX, e.clientY);
   const h = ray.intersectObjects(pickables, false)[0];
   if (h) enterDoor(h.object.userData.door);
@@ -1587,6 +2534,25 @@ soundBtn.addEventListener('click', () => {
   soundBtn.setAttribute('aria-pressed', String(soundOn));
 });
 
+function ding() {
+  if (!live()) return;
+  const { ctx, master } = audio, t = ctx.currentTime;
+  for (const [f, g0, d] of [[2093, 0.12, 1.6], [5230, 0.05, 0.9], [3140, 0.04, 1.1]]) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = f;
+    g.gain.setValueAtTime(g0, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g).connect(master); o.start(t); o.stop(t + d + 0.05);
+  }
+}
+function pickup() {
+  if (!live()) return;
+  rattle();
+  const { ctx, master } = audio, t = ctx.currentTime + 0.35;
+  const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.03, t + 0.05); g.gain.setValueAtTime(0.03, t + 1.2); g.gain.linearRampToValueAtTime(0, t + 1.3);
+  g.connect(master);
+  for (const f of [350, 440]) { const o = ctx.createOscillator(); o.frequency.value = f; o.connect(g); o.start(t); o.stop(t + 1.35); }
+}
+
 // =====================================================================================
 // Resize + loop
 // =====================================================================================
@@ -1598,7 +2564,7 @@ function resize() {
   camera.aspect = aspect;
   camera.fov = aspect < 0.8 ? 70 : aspect < 1.2 ? 60 : 52;
   camera.updateProjectionMatrix();
-  for (const wtr of [poolWater, hallWater]) wtr.getRenderTarget().setSize(Math.round(w * renderer.getPixelRatio() * REFL_SCALE), Math.round(h * renderer.getPixelRatio() * REFL_SCALE));
+  for (const wtr of [poolWater, hallWater, lobbyGloss]) wtr.getRenderTarget().setSize(Math.round(w * renderer.getPixelRatio() * REFL_SCALE), Math.round(h * renderer.getPixelRatio() * REFL_SCALE));
   MOTE_SCALE.value = h * renderer.getPixelRatio() * 0.5;
 }
 addEventListener('resize', resize);
@@ -1606,8 +2572,23 @@ resize();
 
 const depthEl = document.getElementById('depth');
 const clock = new THREE.Clock();
-let dripAt = 0, firstFrame = true, lastDepth = '';
-const look = new V3();
+let dripAt = 0, firstFrame = true, lastDepth = '', lastScreenDraw = -1, flickerAt = 0;
+const look = new V3(), _dir = new V3(), _right = new V3(), _upv = new V3();
+
+function lobbyTick(t, dt) {
+  for (const p of Object.values(PROPS)) {
+    const target = state === 'lobby' && hotProp && PROPS[hotProp] === p ? 1 : 0;
+    p.hover += (target - p.hover) * (1 - Math.exp(-dt * 10));
+    for (const m of p.mats) m.emissive.setRGB(0.2 * p.hover, 0.15 * p.hover, 0.08 * p.hover);
+  }
+  if (t > flickerAt) {
+    flickerAt = t + (Math.random() < 0.2 ? 0.06 : 0.2 + Math.random() * 2.5);
+    fluoroFlicker.emissiveIntensity = Math.random() < 0.35 ? 0.25 : 2.6;
+  }
+  const tick = Math.floor(t * 2);
+  if (tick !== lastScreenDraw) { lastScreenDraw = tick; drawScreen(t); screenTex.needsUpdate = true; }
+  if (state === 'lobby-focus' && focusKey === 'computer' && !panels.computer.hidden) placePc();
+}
 
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -1621,20 +2602,28 @@ function frame() {
     rig.look.set(0, 1.45, hallZ - 12);
   }
 
-  // camera: eased toward the pointer, with a slow float
+  const inPool = active === pool, inHall = active === hall, inLobby = active === lobby, inDeep = active === deep;
+
+  // camera: eased toward the pointer (in the camera's own frame), with a slow float
   const e = 1 - Math.exp(-dt * 2.2);
   pointer.x += (pointer.tx - pointer.x) * e;
   pointer.y += (pointer.ty - pointer.y) * e;
   const par = rig.parallax * (reduceMotion ? 0.45 : 1);
-  const bob = reduceMotion ? 0 : 1;
-  const inHall = active === hall;
-  const sway = inHall ? 0.5 : 1;
-  camera.position.set(
-    rig.pos.x + pointer.x * (inHall ? 0.25 : 0.55) * par + Math.sin(t * 0.23) * 0.06 * bob * sway,
-    rig.pos.y - pointer.y * (inHall ? 0.12 : 0.22) * par + Math.sin(t * 0.31) * 0.035 * bob * sway,
-    rig.pos.z + Math.sin(t * 0.17) * 0.08 * bob * sway,
-  );
-  look.set(rig.look.x + pointer.x * (inHall ? 3.2 : 2.6) * par, rig.look.y - pointer.y * (inHall ? 1.6 : 1.4) * par, rig.look.z);
+  const bob = reduceMotion || state === 'lobby-focus' ? 0 : 1;
+  const sway = inPool ? 1 : 0.5;
+  _dir.subVectors(rig.look, rig.pos);
+  const dist = _dir.length() || 1;
+  _dir.divideScalar(dist);
+  _right.crossVectors(_dir, UP);
+  if (_right.lengthSq() < 1e-6) _right.set(1, 0, 0);
+  _right.normalize();
+  _upv.crossVectors(_right, _dir);
+  const [mx, my, ax, ay] = inPool ? [0.55, 0.22, 0.12, 0.065] : inHall ? [0.25, 0.12, 0.26, 0.13] : [0.12, 0.06, 0.1, 0.06];
+  camera.position.copy(rig.pos)
+    .addScaledVector(_right, pointer.x * mx * par + Math.sin(t * 0.23) * 0.06 * bob * sway)
+    .addScaledVector(_upv, -pointer.y * my * par + Math.sin(t * 0.31) * 0.035 * bob * sway)
+    .addScaledVector(_dir, -Math.sin(t * 0.17) * 0.08 * bob * sway);
+  look.copy(rig.look).addScaledVector(_right, pointer.x * ax * dist * par).addScaledVector(_upv, -pointer.y * ay * dist * par);
   camera.lookAt(look);
   camera.rotateZ(Math.sin(t * 0.21) * 0.004 * bob - pointer.x * 0.012 * par);
 
@@ -1649,23 +2638,45 @@ function frame() {
   }
 
   // ambient drips; the hallway water keeps lapping gently
-  if (t > dripAt) {
+  if (t > dripAt && (inPool || inHall)) {
     dripAt = t + (inHall ? 0.25 : 0.5) + Math.random() * (inHall ? 0.5 : 1.4);
     if (inHall) hallSim.addDrop(-1.2 + Math.random() * 2.4, camera.position.z - 1 - Math.random() * 14, 0.15 + Math.random() * 0.15, 0.003 + Math.random() * 0.004);
     else poolSim.addDrop(-3.5 + Math.random() * 6, -16 + Math.random() * 20, 0.12 + Math.random() * 0.1, 0.004 + Math.random() * 0.006);
   }
 
+  // bubbles stream past while you swim
+  if (bubbleRate > 0 && inDeep) {
+    bubbleAcc += dt * bubbleRate;
+    while (bubbleAcc >= 1) {
+      bubbleAcc -= 1;
+      _bp.copy(camera.position).addScaledVector(_dir, 1 + Math.random() * 7).addScaledVector(_right, (Math.random() - 0.5) * 6).addScaledVector(_upv, -1.2 - Math.random() * 1.8);
+      bubbles.spawn(_bp, new V3(0, 0.3 + Math.random() * 0.5, 0), 0.004 + Math.pow(Math.random(), 4) * 0.05, 3 + Math.random() * 3);
+    }
+  }
+  bubbles.update(dt);
+  splashFx.update(dt);
+
+  // the waterline follows the camera's height against each scene's surface
+  let line = -0.3;
+  if (inDeep) line = 1.3;
+  else if (inHall) line = THREE.MathUtils.mapLinear(camera.position.y, H_WATER + 0.12, H_WATER - 0.12, -0.25, 1.25);
+  else if (inPool) line = THREE.MathUtils.mapLinear(camera.position.y, 0.32, 0.06, -0.25, 1.25);
   fx.wet = Math.max(0, fx.wet - dt * 0.45);
+  lens.uniforms.uLine.value = THREE.MathUtils.clamp(line, -0.3, 1.3);
+  lens.uniforms.uUnder.value = inDeep ? 0.18 : 0.6;
   lens.uniforms.uDive.value = fx.dive;
   lens.uniforms.uFlash.value = fx.flash;
   lens.uniforms.uWet.value = fx.wet;
+
+  if (inLobby) lobbyTick(t, dt);
+  if (inDeep) orientBillboards(deepShafts, UP);
 
   if (!paused) {
     if (inHall) {
       hallSim.update(dt);
       hallWater.visible = camera.position.y > H_WATER;
       underside.visible = !hallWater.visible;
-    } else {
+    } else if (inPool) {
       poolSim.update(dt);
       orientShafts();
     }
@@ -1678,8 +2689,12 @@ function frame() {
   if (firstFrame) {
     firstFrame = false;
     requestAnimationFrame(() => document.getElementById('veil').classList.add('gone'));
-    // warm up the hallway's shaders so the dive doesn't stutter
-    setTimeout(() => { try { renderer.compileAsync ? renderer.compileAsync(hall, camera) : renderer.compile(hall, camera); } catch (_) {} }, 1200);
+    // warm up the other scenes' shaders so the dive doesn't stutter
+    setTimeout(async () => {
+      for (const s of [hall, deep, lobby]) {
+        try { if (renderer.compileAsync) await renderer.compileAsync(s, camera); else renderer.compile(s, camera); } catch (_) {}
+      }
+    }, 1200);
   }
   requestAnimationFrame(frame);
 }
@@ -1687,15 +2702,25 @@ requestAnimationFrame(frame);
 
 // test hook: ?debug lets a headless browser jump between scenes and run the water forward
 if (new URLSearchParams(location.search).has('debug')) {
+  const SC = { pool, hall, deep, lobby };
   window.__dbg = {
     hall(z = HALL_Z0) { setScene(hall); hallZ = hallZT = z; rig.parallax = 1; fx.dive = 0; setState('hall'); },
+    lobby() {
+      setScene(lobby); currentDoor = doors.find((d) => d.room?.key === 'contact');
+      rig.parallax = 0.4; rig.pos.copy(STAFF_POS); rig.look.copy(staffLook()); fx.flash = 0; setState('lobby');
+    },
+    lobbyFront() { setScene(lobby); rig.parallax = 0.15; rig.pos.copy(LOBBY_VIEW); rig.look.set(0, 1.05, -3); fx.flash = 0; setState('lobby-intro'); },
     splash(x, z) { simFor().addDrop(x, z, 0.5, 0.04); },
     step(n) { for (let i = 0; i < n; i++) simFor().step(); renderer.setRenderTarget(null); },
     hover(i) { setHot(doors.filter((d) => d.room)[i]); },
     enter(i) { return enterDoor(doors.filter((d) => d.room)[i]); },
-    dive, fx, rig,
+    focus: focusProp, prop: setHotProp, exitLobby, unfocus,
+    dive, surface, fx, rig, bubbles, splashFx,
     slow(v) { timeScale = v; },
-    pose(sc, pos, lk, dv = 0, wet = 0) { setScene(sc === 'hall' ? hall : pool); setState('diving'); rig.parallax = 0.2; rig.pos.set(...pos); rig.look.set(...lk); fx.dive = dv; fx.wet = wet; },
+    crownAt(sc, pos, scale = 1) { splashFx.start(SC[sc], new V3(...pos), scale); },
+    burst(sc, top, pos, n = 150) { bubbles.attach(SC[sc], top); bubbles.burst(new V3(...pos), n, 1.5, 1.2); },
+    rate(v) { bubbleRate = v; },
+    pose(sc, pos, lk, wet = 0) { setScene(SC[sc]); setState('diving'); rig.parallax = 0.2; rig.pos.set(...pos); rig.look.set(...lk); fx.wet = wet; },
   };
 }
 </script>
