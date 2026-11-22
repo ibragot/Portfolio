@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deep End</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: one full-bleed WebGL room; a quiet HUD pinned to the corners like pool signage. */
+  :root {
+    --abyss: #04131d;
+    --ink: #e6f4fa;
+    --ink-dim: rgba(214, 238, 248, 0.62);
+    --line: rgba(190, 228, 245, 0.28);
+    --glow: #7fd3f2;
+    --display: "Instrument Serif", "Cormorant Garamond", Georgia, serif;
+    --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--abyss);
+    color: var(--ink);
+    overflow: hidden;
+    font-family: var(--mono);
+  }
+  #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+
+  .hud {
+    position: fixed; inset: 0; pointer-events: none;
+    display: grid; grid-template-rows: auto 1fr auto;
+    padding-block: calc(env(safe-area-inset-top, 0px) + 22px) calc(env(safe-area-inset-bottom, 0px) + 22px);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  @media (min-width: 720px) {
+    .hud { padding-left: max(40px, env(safe-area-inset-left, 0px)); padding-right: max(40px, env(safe-area-inset-right, 0px)); padding-block: 32px 34px; }
+  }
+  .top, .bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  .top { align-items: flex-start; }
+  .label {
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-dim);
+    display: flex; gap: 10px; align-items: center; margin: 0;
+  }
+  .label .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--glow); box-shadow: 0 0 10px var(--glow); }
+  .gauge { text-align: right; display: grid; gap: 6px; justify-items: end; }
+  .gauge .depth { font-size: 13px; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; color: var(--ink); }
+
+  .name {
+    font-family: var(--display); font-weight: 400; margin: 0;
+    font-size: clamp(40px, 6.6vw, 108px); line-height: 0.9; letter-spacing: -0.01em;
+    color: var(--ink); text-wrap: balance;
+    text-shadow: 0 0 40px rgba(120, 200, 240, 0.35);
+    mix-blend-mode: screen;
+  }
+  .name em { font-style: italic; color: var(--glow); }
+  .who { display: grid; gap: 14px; min-width: 0; }
+  .who p { margin: 0; max-width: 46ch; font-size: 12px; line-height: 1.6; color: var(--ink-dim); }
+  .hint { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-dim); display: grid; gap: 6px; justify-items: end; text-align: right; }
+  .hint span { border-top: 1px solid var(--line); padding-top: 6px; }
+
+  .sound {
+    pointer-events: auto; cursor: pointer;
+    font: 500 11px/1 var(--mono); letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink); background: rgba(10, 40, 58, 0.35); border: 1px solid var(--line);
+    padding: 9px 12px; border-radius: 2px; backdrop-filter: blur(6px);
+  }
+  .sound:hover { border-color: var(--glow); }
+  .sound:focus-visible { outline: 2px solid var(--glow); outline-offset: 3px; }
+
+  #veil {
+    position: fixed; inset: 0; background: var(--abyss); pointer-events: none;
+    display: grid; place-items: center; transition: opacity 2.4s ease;
+    font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim);
+  }
+  #veil.gone { opacity: 0; }
+  @media (prefers-reduced-motion: reduce) { #veil { transition-duration: 0.4s; } }
+  @media (max-width: 560px) { .hint { display: none; } .who p { font-size: 11px; } }
+</style>
+</head>
+<body>
+<canvas id="scene" aria-label="A flooded, tiled pool hall. Move the pointer to look around and click the floor to make ripples."></canvas>
+
+<div class="hud">
+  <div class="top">
+    <p class="label"><span class="dot"></span>Natatorium · Lane 03</p>
+    <div class="gauge">
+      <button class="sound" id="sound" type="button" aria-pressed="false">Sound off</button>
+      <p class="label depth" id="depth">Depth 0.30 m</p>
+    </div>
+  </div>
+  <div></div>
+  <div class="bottom">
+    <div class="who">
+      <p class="label">Software engineer · Ottawa</p>
+      <h1 class="name">Noureldin <em>Ibrahim</em></h1>
+      <p>Full-stack apps, machine learning systems and Roblox games. Portfolio rooms open soon.</p>
+    </div>
+    <div class="hint">
+      <span>Move to look around</span>
+      <span>Touch the water</span>
+    </div>
+  </div>
+</div>
+
+<div id="veil">Filling the pool</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const isMobile = matchMedia('(pointer: coarse)').matches;
+
+// ---------------------------------------------------------------- renderer
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, isMobile ? 1.25 : 1.5));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const FOG = new THREE.Color(0x0a3149);
+scene.background = FOG.clone();
+scene.fog = new THREE.FogExp2(FOG, 0.042);
+
+const camera = new THREE.PerspectiveCamera(52, innerWidth / innerHeight, 0.1, 120);
+
+// ---------------------------------------------------------------- water region (the flooded floor)
+const WATER_Y = 0.035;
+const W_MIN = new THREE.Vector2(-4.6, -26);   // x, z
+const W_SIZE = new THREE.Vector2(16.6, 33);    // width (x), depth (z)
+const SIM_W = 256, SIM_H = Math.round(256 * W_SIZE.y / W_SIZE.x);
+
+// Uniforms shared by every patched material
+const U = {
+  uTime: { value: 0 },
+  uHeight: { value: null },
+  uWaterMin: { value: W_MIN },
+  uWaterSize: { value: W_SIZE },
+  uTexel: { value: new THREE.Vector2(1 / SIM_W, 1 / SIM_H) },
+  uGlowDir: { value: new THREE.Vector3(0.32, 0.1, -1).normalize() },
+  uGlowColor: { value: new THREE.Color(0x2f9ccc) },
+};
+
+// ---------------------------------------------------------------- tile textures (procedural)
+function tileTextures() {
+  const S = 1024, N = 4, T = S / N, G = 9; // 4x4 tiles per metre-square texture, grout px
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const x = c.getContext('2d');
+  const rough = document.createElement('canvas'); rough.width = rough.height = S;
+  const rx = rough.getContext('2d');
+  const heights = new Float32Array(S * S);
+
+  x.fillStyle = '#e7f1f4'; x.fillRect(0, 0, S, S);         // grout
+  rx.fillStyle = '#e0e0e0'; rx.fillRect(0, 0, S, S);       // grout is rough
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const v = Math.random();
+    const l = 74 + v * 7, s = 26 + Math.random() * 10;
+    x.fillStyle = `hsl(${193 + Math.random() * 8}, ${s}%, ${l}%)`;
+    const px = i * T + G / 2, py = j * T + G / 2, w = T - G;
+    x.fillRect(px, py, w, w);
+    // faint glaze mottling
+    for (let k = 0; k < 6; k++) {
+      x.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '40,80,100'},${Math.random() * 0.05})`;
+      const r = 20 + Math.random() * 60;
+      x.beginPath(); x.arc(px + Math.random() * w, py + Math.random() * w, r, 0, Math.PI * 2); x.fill();
+    }
+    const g = 30 + Math.floor(Math.random() * 30);
+    rx.fillStyle = `rgb(${g},${g},${g})`; rx.fillRect(px, py, w, w);
+  }
+  // grime: soft vertical stains
+  for (let k = 0; k < 40; k++) {
+    const gx = Math.random() * S, gy = Math.random() * S, gh = 80 + Math.random() * 300;
+    const grad = x.createLinearGradient(0, gy, 0, gy + gh);
+    grad.addColorStop(0, 'rgba(30,60,70,0)'); grad.addColorStop(0.4, 'rgba(30,60,70,0.05)'); grad.addColorStop(1, 'rgba(30,60,70,0)');
+    x.fillStyle = grad; x.fillRect(gx, gy, 6 + Math.random() * 30, gh);
+  }
+
+  // height field for the normal map: tiles raised with a soft bevel
+  for (let py = 0; py < S; py++) for (let px = 0; px < S; px++) {
+    const u = (px % T), v = (py % T);
+    const d = Math.min(u, v, T - u, T - v) - G / 2;
+    heights[py * S + px] = d <= 0 ? 0 : Math.min(1, d / 7);
+  }
+  const nc = document.createElement('canvas'); nc.width = nc.height = S;
+  const nx = nc.getContext('2d'); const img = nx.createImageData(S, S);
+  for (let py = 0; py < S; py++) for (let px = 0; px < S; px++) {
+    const hL = heights[py * S + ((px - 1 + S) % S)], hR = heights[py * S + ((px + 1) % S)];
+    const hU = heights[((py - 1 + S) % S) * S + px], hD = heights[((py + 1) % S) * S + px];
+    let ax = (hL - hR) * 2.2, ay = (hU - hD) * 2.2, az = 1;
+    const len = Math.hypot(ax, ay, az); ax /= len; ay /= len; az /= len;
+    const o = (py * S + px) * 4;
+    img.data[o] = (ax * 0.5 + 0.5) * 255; img.data[o + 1] = (ay * 0.5 + 0.5) * 255; img.data[o + 2] = (az * 0.5 + 0.5) * 255; img.data[o + 3] = 255;
+  }
+  nx.putImageData(img, 0, 0);
+
+  const aniso = renderer.capabilities.getMaxAnisotropy();
+  const mk = (cv, srgb) => {
+    const t = new THREE.CanvasTexture(cv);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = aniso;
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  };
+  return { map: mk(c, true), roughnessMap: mk(rough, false), normalMap: mk(nc, false) };
+}
+const TEX = tileTextures();
+
+// ---------------------------------------------------------------- material patch: caustics, ripples, glowing fog
+const CAUSTIC_GLSL = /* glsl */`
+  varying vec3 vWPos; varying vec3 vWNorm;
+  uniform float uTime, uCaust, uEmit, uFloor;
+  uniform sampler2D uHeight; uniform vec2 uWaterMin, uWaterSize, uTexel;
+  uniform vec3 uGlowDir, uGlowColor;
+  // tileable water caustic (after Dave Hoskins)
+  float causticLayer(vec2 uv, float t) {
+    vec2 p = mod(uv * 6.28318, 6.28318) - 250.0;
+    vec2 i = p; float c = 1.0; float inten = 0.005;
+    for (int n = 0; n < 4; n++) {
+      float tt = t * (1.0 - (3.5 / float(n + 1)));
+      i = p + vec2(cos(tt - i.x) + sin(tt + i.y), sin(tt - i.y) + cos(tt + i.x));
+      c += 1.0 / length(vec2(p.x / (sin(i.x + tt) / inten), p.y / (cos(i.y + tt) / inten)));
+    }
+    c /= 4.0; c = 1.17 - pow(c, 1.4);
+    return pow(abs(c), 7.0);
+  }
+  float caustic2(vec2 uv, float t) {
+    return causticLayer(uv, t) * 0.65 + causticLayer(uv * 0.61 + vec2(0.37, 0.11), t * 0.83 + 4.0) * 0.55;
+  }
+  float caustics(vec3 p, vec3 n, float t) {
+    vec3 w = pow(abs(n), vec3(4.0)); w /= (w.x + w.y + w.z);
+    float c = 0.0;
+    if (w.x > 0.02) c += w.x * caustic2(p.zy * 0.34, t);
+    if (w.y > 0.02) c += w.y * caustic2(p.xz * 0.34 + vec2(3.1, 1.7), t);
+    if (w.z > 0.02) c += w.z * caustic2(p.xy * 0.34 + vec2(7.3, 2.2), t);
+    return c;
+  }
+`;
+
+function patch(mat, { caust = 1, emit = 0, floor = 0 } = {}) {
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, U);
+    sh.uniforms.uCaust = { value: caust };
+    sh.uniforms.uEmit = { value: emit };
+    sh.uniforms.uFloor = { value: floor };
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWPos; varying vec3 vWNorm;')
+      .replace('#include <worldpos_vertex>', `#include <worldpos_vertex>
+        vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+        vWNorm = normalize(mat3(modelMatrix) * objectNormal);`);
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\n' + CAUSTIC_GLSL)
+      .replace('#include <lights_fragment_begin>', `
+        vec3 cP = vWPos;
+        float ripple = 0.0;
+        if (uFloor > 0.5) {
+          vec2 wuv = (vWPos.xz - uWaterMin) / uWaterSize;
+          if (wuv.x > 0.0 && wuv.x < 1.0 && wuv.y > 0.0 && wuv.y < 1.0) {
+            float h  = texture2D(uHeight, wuv).r;
+            float hx = texture2D(uHeight, wuv + vec2(uTexel.x, 0.0)).r;
+            float hX = texture2D(uHeight, wuv - vec2(uTexel.x, 0.0)).r;
+            float hz = texture2D(uHeight, wuv + vec2(0.0, uTexel.y)).r;
+            float hZ = texture2D(uHeight, wuv - vec2(0.0, uTexel.y)).r;
+            vec2 grad = vec2(hx - hX, hz - hZ);
+            cP.xz += grad * 22.0;                          // ripples bend the light pattern
+            ripple = clamp(-(hx + hX + hz + hZ - 4.0 * h) * 900.0, -0.7, 3.5); // and focus it
+          }
+        }
+        float cRaw = caustics(cP, normalize(vWNorm), uTime * 0.55);
+        float cTerm = 0.12 + uCaust * cRaw * 3.2 + ripple * 0.9;
+        vec3 rippleGlow = vec3(0.35, 0.75, 1.0) * max(ripple, 0.0) * 0.16;
+        ` + THREE.ShaderChunk.lights_fragment_begin.replaceAll(
+          'RE_Direct( directLight,',
+          'directLight.color *= max(cTerm, 0.0);\n\t\tRE_Direct( directLight,'))
+      .replace('#include <aomap_fragment>', `#include <aomap_fragment>
+        totalEmissiveRadiance += rippleGlow;`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        if (uEmit > 0.0) {
+          float ce = caustics(vWPos, normalize(vWNorm), uTime * 0.55);
+          totalEmissiveRadiance += vec3(0.45, 0.85, 1.0) * ce * uEmit;
+        }`)
+      .replace('#include <fog_fragment>', `
+        #ifdef USE_FOG
+          vec3 vdir = normalize(vWPos - cameraPosition);
+          float g = pow(max(dot(vdir, uGlowDir), 0.0), 6.0);
+          float dist = length(vWPos - cameraPosition);
+          float fogF = 1.0 - exp(-fogDensity * fogDensity * dist * dist);
+          vec3 fc = mix(fogColor, uGlowColor, g);
+          fc += uGlowColor * 0.25 * smoothstep(0.0, 9.0, vWPos.y) * g;
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, fc, fogF);
+        #endif`);
+  };
+  mat.customProgramCacheKey = () => `pool-${caust}-${emit}-${floor}`;
+  return mat;
+}
+
+const tileProps = { map: TEX.map, roughnessMap: TEX.roughnessMap, normalMap: TEX.normalMap, normalScale: new THREE.Vector2(0.7, 0.7), roughness: 1, metalness: 0 };
+const wallMat = patch(new THREE.MeshStandardMaterial({ ...tileProps }), { caust: 1 });
+const dimWallMat = patch(new THREE.MeshStandardMaterial({ ...tileProps, color: 0x9fb4bd }), { caust: 0.6 });
+const floorMat = patch(new THREE.MeshStandardMaterial({ ...tileProps }), { caust: 0.85, floor: 1 });
+const glowWallMat = patch(new THREE.MeshStandardMaterial({ ...tileProps, emissive: 0x1d6f95, emissiveMap: TEX.map, emissiveIntensity: 1.25 }), { caust: 1, emit: 2.4 });
+const ledgeMat = patch(new THREE.MeshStandardMaterial({ ...tileProps, emissive: 0x0f4a66, emissiveMap: TEX.map, emissiveIntensity: 0.55 }), { caust: 1.1 });
+const woodMat = patch(new THREE.MeshStandardMaterial({ color: 0xb59a52, roughness: 0.55 }), { caust: 0.7 });
+const legMat = patch(new THREE.MeshStandardMaterial({ color: 0x24333b, roughness: 0.45, metalness: 0.6 }), { caust: 0.4 });
+const ceilMat = patch(new THREE.MeshStandardMaterial({ color: 0x0b1e28, roughness: 1 }), { caust: 0.3 });
+
+// ---------------------------------------------------------------- geometry helpers
+// Box from min/max corners with UVs scaled so one texture repeat = 1 metre on every face.
+function box([x0, x1], [y0, y1], [z0, z1], mat, { cast = true, receive = true } = {}) {
+  const w = x1 - x0, h = y1 - y0, d = z1 - z0;
+  const g = new THREE.BoxGeometry(w, h, d);
+  const uv = g.attributes.uv;
+  const dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
+  for (let f = 0; f < 6; f++) for (let k = 0; k < 4; k++) {
+    const i = f * 4 + k;
+    uv.setXY(i, uv.getX(i) * dims[f][0], uv.getY(i) * dims[f][1]);
+  }
+  const m = new THREE.Mesh(g, mat);
+  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+  m.castShadow = cast; m.receiveShadow = receive;
+  scene.add(m);
+  return m;
+}
+
+// ---------------------------------------------------------------- the room
+const H = 15;
+// floor (sits just under the water film)
+box([-14, 14], [-0.4, 0], [-30, 12], floorMat, { cast: false });
+// ceiling
+box([-14, 14], [H, H + 0.4], [-30, 12], ceilMat, { cast: false, receive: false });
+
+// left: big foreground pillar, tiered tile seating, recessed dark wall behind
+box([-8, -4.6], [0, H], [-6.5, 9], wallMat);
+box([-4.6, -3.55], [0, 0.42], [-16, 9], wallMat);          // step 1
+box([-4.6, -4.1], [0.42, 0.84], [-16, 9], wallMat);        // step 2
+box([-10, -7.2], [0, H], [-30, -6.5], dimWallMat);         // recessed wall
+box([-7.2, -4.6], [0, 1.26], [-16, -6.5], wallMat);        // step 3 continues into the recess
+
+// centre: the dark monolith pillar
+box([-4.3, -0.4], [0, H], [-24, -17.5], dimWallMat);
+
+// back: the bright wall full of light
+box([-4.3, 14], [0, H], [-30, -27.5], glowWallMat, { cast: false });
+
+// right: foreground pillar and the raised, lit platform behind it
+box([4.2, 8], [0, H], [-7.5, 9], dimWallMat);
+box([2.6, 14], [0, 0.32], [-27.5, -7.5], ledgeMat);        // platform
+box([2.35, 2.6], [0, 0.22], [-27.5, -7.5], ledgeMat);      // curb lip
+box([8, 14], [0, H], [-7.5, 12], dimWallMat);              // side wall closing the right
+box([-14, -8], [0, H], [-6.5, 12], dimWallMat);            // side wall closing the left
+box([-14, 14], [0, H], [11, 12], dimWallMat, { cast: false }); // wall behind camera
+
+// benches: slatted tops on dark legs, in a loose line toward the light
+function bench(x, z, rot) {
+  const g = new THREE.Group();
+  const add = (geo, mat, px, py, pz) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); m.castShadow = m.receiveShadow = true; g.add(m); };
+  for (let s = 0; s < 3; s++) add(new THREE.BoxGeometry(0.14, 0.05, 1.7), woodMat, -0.17 + s * 0.17, 0.47, 0);
+  const leg = new THREE.BoxGeometry(0.05, 0.45, 0.05);
+  for (const sx of [-0.2, 0.2]) for (const sz of [-0.72, 0.72]) add(leg, legMat, sx, 0.225, sz);
+  add(new THREE.BoxGeometry(0.46, 0.04, 0.05), legMat, 0, 0.42, -0.72);
+  add(new THREE.BoxGeometry(0.46, 0.04, 0.05), legMat, 0, 0.42, 0.72);
+  g.position.set(x, 0, z); g.rotation.y = rot;
+  scene.add(g);
+}
+bench(-1.55, -2.4, 0.12);
+bench(-1.95, -5.6, 0.08);
+bench(-2.3, -8.7, 0.15);
+bench(-2.6, -11.6, 0.05);
+
+// ---------------------------------------------------------------- light
+scene.add(new THREE.HemisphereLight(0x4a93bd, 0x0b2836, 1.35));
+const sun = new THREE.DirectionalLight(0xb4e8ff, 4.6);
+sun.position.set(7, 22, -15);
+sun.target.position.set(-1.5, 0, -4);
+scene.add(sun, sun.target);
+sun.castShadow = true;
+sun.shadow.mapSize.set(isMobile ? 1024 : 2048, isMobile ? 1024 : 2048);
+Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 60 });
+sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03; sun.shadow.radius = 4;
+
+// ---------------------------------------------------------------- ripple simulation (GPU heightfield)
+const simRT = () => new THREE.WebGLRenderTarget(SIM_W, SIM_H, {
+  type: THREE.HalfFloatType, format: THREE.RGBAFormat, depthBuffer: false,
+  minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+  wrapS: THREE.ClampToEdgeWrapping, wrapT: THREE.ClampToEdgeWrapping,
+});
+let simA = simRT(), simB = simRT();
+const simScene = new THREE.Scene();
+const simCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const simQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+simScene.add(simQuad);
+const quadVS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+const stepMat = new THREE.ShaderMaterial({
+  uniforms: { tex: { value: null }, delta: { value: U.uTexel.value } },
+  vertexShader: quadVS,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tex; uniform vec2 delta; varying vec2 vUv;
+    void main(){
+      vec4 info = texture2D(tex, vUv);
+      vec2 dx = vec2(delta.x, 0.0), dy = vec2(0.0, delta.y);
+      float avg = (texture2D(tex, vUv - dx).r + texture2D(tex, vUv + dx).r + texture2D(tex, vUv - dy).r + texture2D(tex, vUv + dy).r) * 0.25;
+      info.g += (avg - info.r) * 2.0;
+      info.g *= 0.985;
+      info.r += info.g;
+      info.r *= 0.998;
+      gl_FragColor = info;
+    }`,
+});
+const dropMat = new THREE.ShaderMaterial({
+  uniforms: { tex: { value: null }, center: { value: new THREE.Vector2() }, radius: { value: 0.3 }, strength: { value: 0.01 }, size: { value: W_SIZE } },
+  vertexShader: quadVS,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tex; uniform vec2 center, size; uniform float radius, strength; varying vec2 vUv;
+    void main(){
+      vec4 info = texture2D(tex, vUv);
+      float d = length((vUv - center) * size) / radius;
+      float drop = max(0.0, 1.0 - d);
+      drop = 0.5 - cos(drop * 3.14159265) * 0.5;
+      info.r -= drop * strength;
+      gl_FragColor = info;
+    }`,
+});
+function simPass(mat) {
+  mat.uniforms.tex.value = simA.texture;
+  simQuad.material = mat;
+  renderer.setRenderTarget(simB);
+  renderer.render(simScene, simCam);
+  [simA, simB] = [simB, simA];
+}
+const drops = [];
+function addDrop(wx, wz, radius, strength) {
+  const u = (wx - W_MIN.x) / W_SIZE.x, v = (wz - W_MIN.y) / W_SIZE.y;
+  if (u < 0 || u > 1 || v < 0 || v > 1) return;
+  if (drops.length < 12) drops.push([u, v, radius, strength]);
+}
+
+// ---------------------------------------------------------------- water surface (planar reflection + ripples)
+const waterShader = {
+  name: 'PoolWater',
+  uniforms: {
+    color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null },
+    uHeight: { value: null }, uWaterMin: { value: null }, uWaterSize: { value: null }, uTexel: { value: null },
+    uTime: { value: 0 }, uFogColor: { value: FOG }, uFogDensity: { value: 0.042 },
+    uGlowDir: { value: null }, uGlowColor: { value: null },
+  },
+  vertexShader: /* glsl */`
+    uniform mat4 textureMatrix;
+    varying vec4 vUv; varying vec3 vWPos;
+    #include <common>
+    void main(){
+      vUv = textureMatrix * vec4(position, 1.0);
+      vWPos = (modelMatrix * vec4(position, 1.0)).xyz;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: /* glsl */`
+    uniform vec3 color; uniform sampler2D tDiffuse; uniform sampler2D uHeight;
+    uniform vec2 uWaterMin, uWaterSize, uTexel; uniform float uTime;
+    uniform vec3 uFogColor, uGlowDir, uGlowColor; uniform float uFogDensity;
+    varying vec4 vUv; varying vec3 vWPos;
+    #include <common>
+    void main(){
+      vec2 wuv = (vWPos.xz - uWaterMin) / uWaterSize;
+      float hx = texture2D(uHeight, wuv + vec2(uTexel.x, 0.0)).r;
+      float hX = texture2D(uHeight, wuv - vec2(uTexel.x, 0.0)).r;
+      float hz = texture2D(uHeight, wuv + vec2(0.0, uTexel.y)).r;
+      float hZ = texture2D(uHeight, wuv - vec2(0.0, uTexel.y)).r;
+      // fine standing shimmer so the film never looks frozen
+      vec2 sh = vec2(sin(vWPos.x * 9.0 + uTime * 1.3) + sin(vWPos.z * 7.0 - uTime * 1.1 + vWPos.x * 2.0),
+                     cos(vWPos.z * 8.0 + uTime * 1.2) + sin(vWPos.x * 6.0 + vWPos.z * 3.0 + uTime)) * 0.0045;
+      vec3 n = normalize(vec3((hX - hx) * 42.0 + sh.x, 1.0, (hZ - hz) * 42.0 + sh.y));
+
+      vec3 V = normalize(cameraPosition - vWPos);
+      float fres = 0.04 + 0.96 * pow(1.0 - max(dot(n, V), 0.0), 5.0);
+      vec2 ruv = vUv.xy / vUv.w + n.xz * 0.11;
+      vec3 refl = texture2D(tDiffuse, ruv).rgb * vec3(0.8, 0.95, 1.0);
+
+      vec3 L = normalize(vec3(0.42, 0.75, -0.52));
+      float spec = pow(max(dot(reflect(-V, n), L), 0.0), 180.0) * 2.5;
+
+      float a = clamp(mix(0.16, 0.85, fres), 0.0, 1.0);
+      float tilt = length(n.xz - sh);
+      vec3 col = refl + vec3(0.6, 0.9, 1.0) * spec + vec3(0.35, 0.7, 1.0) * smoothstep(0.004, 0.1, tilt) * 0.32;
+      a = max(a, smoothstep(0.004, 0.1, tilt) * 0.45);
+
+      float dist = length(vWPos - cameraPosition);
+      float fogF = 1.0 - exp(-uFogDensity * uFogDensity * dist * dist);
+      vec3 vdir = -V;
+      float g = pow(max(dot(vdir, uGlowDir), 0.0), 6.0);
+      col = mix(col, mix(uFogColor, uGlowColor, g), fogF);
+      gl_FragColor = vec4(col, a);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+};
+const reflScale = isMobile ? 0.4 : 0.6;
+const water = new Reflector(new THREE.PlaneGeometry(W_SIZE.x, W_SIZE.y), {
+  shader: waterShader,
+  textureWidth: Math.round(innerWidth * renderer.getPixelRatio() * reflScale),
+  textureHeight: Math.round(innerHeight * renderer.getPixelRatio() * reflScale),
+  clipBias: 0.003, multisample: 0, color: 0xffffff,
+});
+water.rotation.x = -Math.PI / 2;
+water.position.set(W_MIN.x + W_SIZE.x / 2, WATER_Y, W_MIN.y + W_SIZE.y / 2);
+const wu = water.material.uniforms;
+for (const k of ['uHeight', 'uWaterMin', 'uWaterSize', 'uTexel', 'uTime', 'uGlowDir', 'uGlowColor']) wu[k] = U[k];
+water.material.transparent = true;
+water.material.depthWrite = false;
+water.renderOrder = 1;
+scene.add(water);
+
+// ---------------------------------------------------------------- light shafts
+const shaftMat = (seed, strength) => new THREE.ShaderMaterial({
+  uniforms: { uTime: U.uTime, uSeed: { value: seed }, uStrength: { value: strength } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform float uTime, uSeed, uStrength; varying vec2 vUv;
+    void main(){
+      float across = smoothstep(0.0, 0.5, vUv.x) * smoothstep(1.0, 0.5, vUv.x);
+      across = pow(across, 1.6);
+      float along = smoothstep(0.0, 0.35, vUv.y) * smoothstep(1.0, 0.75, vUv.y);
+      float flick = 0.55 + 0.45 * sin(uTime * 0.6 + uSeed * 17.0 + vUv.y * 2.5) * sin(uTime * 0.37 + uSeed * 5.0);
+      gl_FragColor = vec4(vec3(0.42, 0.8, 1.0) * across * along * flick * uStrength, 1.0);
+    }`,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+});
+const lightDir = new THREE.Vector3().subVectors(sun.target.position, sun.position).normalize();
+const shafts = [];
+for (let i = 0; i < 7; i++) {
+  const len = 22, w = 0.6 + Math.random() * 1.4;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, len), shaftMat(Math.random(), 0.05 + Math.random() * 0.06));
+  const center = new THREE.Vector3(-2.5 + Math.random() * 6.5, 6.5, -21 + Math.random() * 15);
+  m.userData.center = center;
+  m.frustumCulled = false;
+  shafts.push(m); scene.add(m);
+}
+const _x = new THREE.Vector3(), _z = new THREE.Vector3(), _m = new THREE.Matrix4(), _to = new THREE.Vector3();
+function orientShafts(cam) {
+  const axis = lightDir.clone().negate(); // plane's local Y runs along the beam
+  for (const s of shafts) {
+    _to.subVectors(cam.position, s.userData.center);
+    _x.crossVectors(axis, _to).normalize();
+    _z.crossVectors(_x, axis).normalize();
+    _m.makeBasis(_x, axis, _z);
+    s.quaternion.setFromRotationMatrix(_m);
+    s.position.copy(s.userData.center);
+  }
+}
+
+// ---------------------------------------------------------------- drifting motes
+const MOTES = isMobile ? 260 : 520;
+const mp = new Float32Array(MOTES * 3), ms = new Float32Array(MOTES);
+for (let i = 0; i < MOTES; i++) {
+  mp[i * 3] = -6 + Math.random() * 14; mp[i * 3 + 1] = Math.random() * 10; mp[i * 3 + 2] = -24 + Math.random() * 30;
+  ms[i] = Math.random();
+}
+const moteGeo = new THREE.BufferGeometry();
+moteGeo.setAttribute('position', new THREE.BufferAttribute(mp, 3));
+moteGeo.setAttribute('seed', new THREE.BufferAttribute(ms, 1));
+const motes = new THREE.Points(moteGeo, new THREE.ShaderMaterial({
+  uniforms: { uTime: U.uTime, uScale: { value: innerHeight * renderer.getPixelRatio() * 0.5 } },
+  vertexShader: /* glsl */`
+    attribute float seed; uniform float uTime, uScale; varying float vA;
+    void main(){
+      vec3 p = position;
+      p.y = mod(p.y + uTime * (0.05 + seed * 0.12), 10.0);
+      p.x += sin(uTime * 0.3 + seed * 30.0) * 0.25;
+      p.z += cos(uTime * 0.25 + seed * 20.0) * 0.25;
+      vec4 mv = modelViewMatrix * vec4(p, 1.0);
+      gl_Position = projectionMatrix * mv;
+      gl_PointSize = uScale * (0.012 + seed * 0.02) / -mv.z;
+      vA = (0.25 + 0.75 * seed) * smoothstep(30.0, 4.0, -mv.z) * (0.5 + 0.5 * sin(uTime * (1.0 + seed * 2.0) + seed * 40.0));
+    }`,
+  fragmentShader: /* glsl */`
+    varying float vA;
+    void main(){ float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0.0, d); gl_FragColor = vec4(vec3(0.55, 0.85, 1.0) * a * vA * 0.9, 1.0); }`,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+}));
+motes.frustumCulled = false;
+scene.add(motes);
+
+// ---------------------------------------------------------------- post: bloom, then an underwater lens
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(renderer.getPixelRatio());
+composer.setSize(innerWidth, innerHeight);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.75, 0.62);
+composer.addPass(bloom);
+const lens = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uTime: U.uTime, uRes: { value: new THREE.Vector2(innerWidth, innerHeight) } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: /* glsl */`
+    uniform sampler2D tDiffuse; uniform float uTime; uniform vec2 uRes; varying vec2 vUv;
+    void main(){
+      vec2 uv = vUv;
+      uv += vec2(sin(uv.y * 14.0 + uTime * 0.9), cos(uv.x * 11.0 + uTime * 0.7)) * 0.0009;   // water wobble
+      vec2 c = uv - 0.5;
+      float ca = 0.006 * dot(c, c);
+      vec3 col = vec3(texture2D(tDiffuse, uv + c * ca * 2.0).r, texture2D(tDiffuse, uv).g, texture2D(tDiffuse, uv - c * ca * 2.0).b);
+      float vig = smoothstep(1.05, 0.2, length(c * vec2(1.0, 1.25)));
+      col *= mix(0.28, 1.0, vig);
+      col = mix(col, col * vec3(0.86, 1.0, 1.08), 0.6);                                // push toward teal
+      float n = fract(sin(dot(floor(uv * uRes) + fract(uTime * 7.0) * 91.0, vec2(12.9898, 78.233))) * 43758.5453);
+      col += (n - 0.5) * 0.03 * (0.3 + col);
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+});
+composer.addPass(lens);
+composer.addPass(new OutputPass());
+
+// ---------------------------------------------------------------- camera rig + pointer
+const BASE_POS = new THREE.Vector3(0.55, 1.55, 7.2);
+const BASE_LOOK = new THREE.Vector3(-0.1, 2.75, -14);
+const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
+const ray = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -WATER_Y);
+const hit = new THREE.Vector3();
+let lastDrop = null;
+
+function waterPoint(clientX, clientY) {
+  ndc.set((clientX / innerWidth) * 2 - 1, -(clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  return ray.ray.intersectPlane(waterPlane, hit) ? hit : null;
+}
+function onMove(e) {
+  pointer.tx = (e.clientX / innerWidth) * 2 - 1;
+  pointer.ty = (e.clientY / innerHeight) * 2 - 1;
+  const p = waterPoint(e.clientX, e.clientY);
+  if (!p) return;
+  if (!lastDrop || lastDrop.distanceTo(p) > 0.18) {
+    const fast = lastDrop ? Math.min(lastDrop.distanceTo(p), 1.2) : 0.3;
+    addDrop(p.x, p.z, 0.22, 0.0035 + fast * 0.004);
+    lastDrop = (lastDrop || new THREE.Vector3()).copy(p);
+    trail(fast);
+  }
+}
+function onDown(e) {
+  onMove(e);
+  const p = waterPoint(e.clientX, e.clientY);
+  if (!p) return;
+  addDrop(p.x, p.z, 0.5, 0.038);
+  const x = p.x, z = p.z;
+  setTimeout(() => addDrop(x, z, 0.3, -0.02), 90);
+  plop(0.9);
+}
+canvas.addEventListener('pointermove', onMove);
+canvas.addEventListener('pointerdown', onDown);
+addEventListener('pointerleave', () => { pointer.tx = 0; pointer.ty = 0; });
+
+// ---------------------------------------------------------------- sound (synthesised, opt-in)
+let audio = null, soundOn = false;
+const soundBtn = document.getElementById('sound');
+function startAudio() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
+  // brown-noise room tone through a slowly breathing low-pass
+  const len = ctx.sampleRate * 4, buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); let last = 0; for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; d[i] = last * 3.2; } }
+  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380; lp.Q.value = 0.6;
+  const lfo = ctx.createOscillator(); lfo.frequency.value = 0.06; const lfoG = ctx.createGain(); lfoG.gain.value = 160; lfo.connect(lfoG).connect(lp.frequency); lfo.start();
+  const bed = ctx.createGain(); bed.gain.value = 0.55;
+  src.connect(lp).connect(bed).connect(master); src.start();
+  // a low hum, like the pool's filter pump two rooms away
+  const hum = ctx.createOscillator(); hum.frequency.value = 55; const humG = ctx.createGain(); humG.gain.value = 0.025; hum.connect(humG).connect(master); hum.start();
+  return { ctx, master };
+}
+function plop(size = 0.4) {
+  if (!audio || !soundOn) return;
+  const { ctx, master } = audio, t = ctx.currentTime;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine';
+  const f0 = 520 + Math.random() * 380 - size * 200;
+  o.frequency.setValueAtTime(f0 * 0.6, t); o.frequency.exponentialRampToValueAtTime(f0 * 1.6, t + 0.07 + size * 0.04);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.12 * size, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22 + size * 0.1);
+  o.connect(g).connect(master); o.start(t); o.stop(t + 0.4);
+}
+let trailCool = 0;
+function trail(speed) { if (performance.now() > trailCool && Math.random() < 0.35) { trailCool = performance.now() + 180; plop(0.15 + speed * 0.15); } }
+soundBtn.addEventListener('click', () => {
+  if (!audio) audio = startAudio();
+  soundOn = !soundOn;
+  if (audio.ctx.state === 'suspended') audio.ctx.resume();
+  audio.master.gain.setTargetAtTime(soundOn ? 0.7 : 0, audio.ctx.currentTime, 0.4);
+  soundBtn.textContent = soundOn ? 'Sound on' : 'Sound off';
+  soundBtn.setAttribute('aria-pressed', String(soundOn));
+});
+
+// ---------------------------------------------------------------- resize
+function resize() {
+  const w = innerWidth, h = innerHeight, aspect = w / h;
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+  lens.uniforms.uRes.value.set(w, h);
+  camera.aspect = aspect;
+  camera.fov = aspect < 0.8 ? 68 : aspect < 1.2 ? 60 : 52;
+  camera.updateProjectionMatrix();
+  water.getRenderTarget().setSize(Math.round(w * renderer.getPixelRatio() * reflScale), Math.round(h * renderer.getPixelRatio() * reflScale));
+  motes.material.uniforms.uScale.value = h * renderer.getPixelRatio() * 0.5;
+}
+addEventListener('resize', resize);
+resize();
+
+// ---------------------------------------------------------------- loop
+const depthEl = document.getElementById('depth');
+const clock = new THREE.Clock();
+let simAcc = 0, dripAt = 0, firstFrame = true, lastDepth = '';
+const look = new THREE.Vector3();
+const parallax = reduceMotion ? 0.45 : 1;
+
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+  U.uTime.value = t;
+
+  // camera: eased toward the pointer, with a slow underwater float
+  const ease = 1 - Math.exp(-dt * 2.2);
+  pointer.x += (pointer.tx - pointer.x) * ease;
+  pointer.y += (pointer.ty - pointer.y) * ease;
+  const bob = reduceMotion ? 0 : 1;
+  camera.position.set(
+    BASE_POS.x + pointer.x * 0.55 * parallax + Math.sin(t * 0.23) * 0.06 * bob,
+    BASE_POS.y - pointer.y * 0.22 * parallax + Math.sin(t * 0.31) * 0.035 * bob,
+    BASE_POS.z + Math.sin(t * 0.17) * 0.08 * bob,
+  );
+  look.set(BASE_LOOK.x + pointer.x * 2.6 * parallax, BASE_LOOK.y - pointer.y * 1.4 * parallax, BASE_LOOK.z);
+  camera.lookAt(look);
+  camera.rotateZ(Math.sin(t * 0.21) * 0.004 * bob - pointer.x * 0.012 * parallax);
+
+  // ambient drips so the water is never fully still
+  if (t > dripAt) {
+    dripAt = t + 0.5 + Math.random() * 1.4;
+    addDrop(-3.5 + Math.random() * 6, -16 + Math.random() * 20, 0.12 + Math.random() * 0.1, 0.004 + Math.random() * 0.006);
+  }
+
+  // simulation at a fixed 60 Hz
+  simAcc += dt;
+  let steps = 0;
+  while (simAcc >= 1 / 60 && steps < 3) {
+    while (drops.length) {
+      const [u, v, r, s] = drops.shift();
+      dropMat.uniforms.center.value.set(u, v); dropMat.uniforms.radius.value = r; dropMat.uniforms.strength.value = s;
+      simPass(dropMat);
+    }
+    simPass(stepMat);
+    simAcc -= 1 / 60; steps++;
+  }
+  renderer.setRenderTarget(null);
+  U.uHeight.value = simA.texture;
+
+  orientShafts(camera);
+  composer.render();
+
+  const d = (0.3 + Math.max(0, (pointer.x + 1) * 0.5) * 1.6).toFixed(2);
+  if (d !== lastDepth) { depthEl.textContent = `Depth ${d} m`; lastDepth = d; }
+
+  if (firstFrame) { firstFrame = false; requestAnimationFrame(() => document.getElementById('veil').classList.add('gone')); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// test hook: ?debug lets a headless browser run the ripple simulation forward
+if (new URLSearchParams(location.search).has('debug')) {
+  window.__pool = {
+    splash(x, z) { addDrop(x, z, 0.55, 0.05); },
+    step(n) { for (let i = 0; i < n; i++) { while (drops.length) { const [u, v, r, s] = drops.shift(); dropMat.uniforms.center.value.set(u, v); dropMat.uniforms.radius.value = r; dropMat.uniforms.strength.value = s; simPass(dropMat); } simPass(stepMat); } renderer.setRenderTarget(null); },
+  };
+}
+</script>
+</body>
+</html>
